@@ -74,7 +74,7 @@ if uploaded_file is not None:
   lista_detalhada = []
   for _, row in df.iterrows():
     cliente = str(row.get("NAME", row.get("CLIENTE", "N/A"))).strip()
-    orfa = str(row.get("ORFA", "N/A")).strip()
+    orfa = str(row.get("ORFA", row.get("ORFA / OP", "N/A"))).strip()
     linha = str(row.get("LINHA", "N/A")).strip()
     dimensao_val = row.get(
         "DIMENSÃO", row.get("DIMENSAO", row.get("TAMANHO", 0))
@@ -101,40 +101,41 @@ if uploaded_file is not None:
 
       lista_detalhada.append({
           "CLIENTE": cliente,
-          "ORFA": orfa,
-          "LINHA": linha,
-          "ALINHAMENTO": alinhamento,
+          "ORFA / OP": orfa,
           "MODELO": modelo,
           "MÓDULOS (1,25m)": mod_qtd,
-          "BANDEJA L290 C790": c790,
-          "BANDEJA L290 C530": c530,
-          "BANDEJA L290 C410": c410,
-          "TOTAL BANDEJAS ABS": total_bandejas,
+          "BANDEJA C790": c790,
+          "BANDEJA C530": c530,
+          "BANDEJA C410": c410,
+          "TOTAL ABS": total_bandejas,
       })
 
   df_detalhado = pd.DataFrame(lista_detalhada)
 
   df_por_cliente = df_detalhado.groupby(
-      ["CLIENTE", "ORFA", "MODELO"], as_index=False
+      ["CLIENTE", "ORFA / OP", "MODELO"], as_index=False
   ).agg({
       "MÓDULOS (1,25m)": "sum",
-      "BANDEJA L290 C790": "sum",
-      "BANDEJA L290 C530": "sum",
-      "BANDEJA L290 C410": "sum",
-      "TOTAL BANDEJAS ABS": "sum",
+      "BANDEJA C790": "sum",
+      "BANDEJA C530": "sum",
+      "BANDEJA C410": "sum",
+      "TOTAL ABS": "sum",
   })
 
   df_geral_modelo = df_detalhado.groupby("MODELO", as_index=False).agg({
       "MÓDULOS (1,25m)": "sum",
-      "BANDEJA L290 C790": "sum",
-      "BANDEJA L290 C530": "sum",
-      "BANDEJA L290 C410": "sum",
-      "TOTAL BANDEJAS ABS": "sum",
+      "BANDEJA C790": "sum",
+      "BANDEJA C530": "sum",
+      "BANDEJA C410": "sum",
+      "TOTAL ABS": "sum",
   })
+  df_geral_modelo.rename(
+      columns={"MODELO": "MODELO DO EXPOSITOR"}, inplace=True
+  )
 
-  tot_c790 = df_geral_modelo["BANDEJA L290 C790"].sum()
-  tot_c530 = df_geral_modelo["BANDEJA L290 C530"].sum()
-  tot_c410 = df_geral_modelo["BANDEJA L290 C410"].sum()
+  tot_c790 = df_geral_modelo["BANDEJA C790"].sum()
+  tot_c530 = df_geral_modelo["BANDEJA C530"].sum()
+  tot_c410 = df_geral_modelo["BANDEJA C410"].sum()
 
   placas_c790 = math.ceil(tot_c790 / 1.0)
   placas_c530 = math.ceil(tot_c530 / 1.0)
@@ -146,7 +147,7 @@ if uploaded_file is not None:
           "ESPESSURA": "5,5 mm",
           "TIPO DE BANDEJA": "L290 × C790 (REF. MAIOR)",
           "QTD PLACAS": int(placas_c790),
-          "PESO UNITÁRIO (kg)": 2.50,
+          "PESO UNIT. (kg)": 2.50,
           "PESO TOTAL (kg)": round(placas_c790 * 2.50, 2),
       },
       {
@@ -154,7 +155,7 @@ if uploaded_file is not None:
           "ESPESSURA": "5,5 mm",
           "TIPO DE BANDEJA": "L290 × C530 (REF. MÉDIA)",
           "QTD PLACAS": int(placas_c530),
-          "PESO UNITÁRIO (kg)": 1.84,
+          "PESO UNIT. (kg)": 1.84,
           "PESO TOTAL (kg)": round(placas_c530 * 1.84, 2),
       },
       {
@@ -162,27 +163,25 @@ if uploaded_file is not None:
           "ESPESSURA": "5,5 mm",
           "TIPO DE BANDEJA": "L290 × C410 (REF. MENOR - 2 un/placa)",
           "QTD PLACAS": int(placas_c410),
-          "PESO UNITÁRIO (kg)": 2.29,
+          "PESO UNIT. (kg)": 2.29,
           "PESO TOTAL (kg)": round(placas_c410 * 2.29, 2),
       },
   ]
   df_pead = pd.DataFrame(pead_data)
 
   total_peso_pead = df_pead["PESO TOTAL (kg)"].sum()
+  total_clientes = df_por_cliente["CLIENTE"].nunique()
+  total_modulos = df_detalhado["MÓDULOS (1,25m)"].sum()
+  total_bandejas_abs = int(df_detalhado["TOTAL ABS"].sum())
 
-  # --- PAINEL VISUAL DE MÉTRICAS NA TELA ---
+  # --- PAINEL VISUAL NA TELA ---
   st.write("---")
   col1, col2, col3, col4 = st.columns(4)
-  col1.metric("🏢 Total de Clientes", df_por_cliente["CLIENTE"].nunique())
-  col2.metric(
-      "📐 Módulos Programados", f"{df_detalhado['MÓDULOS (1,25m)'].sum():.2f}"
-  )
-  col3.metric(
-      "📦 Total Bandejas ABS",
-      f"{int(df_detalhado['TOTAL BANDEJAS ABS'].sum()):,}".replace(",", "."),
-  )
+  col1.metric("TOTAL DE CLIENTES", total_clientes)
+  col2.metric("MÓDULOS PROGRAMADOS", f"{total_modulos:.2f}")
+  col3.metric("TOTAL BANDEJAS ABS", f"{total_bandejas_abs:,}".replace(",", "."))
   col4.metric(
-      "⚖️ Peso Total PEAD",
+      "PESO PEAD (kg)",
       f"{total_peso_pead:,.2f} kg"
       .replace(",", "X")
       .replace(".", ",")
@@ -190,38 +189,41 @@ if uploaded_file is not None:
   )
 
   st.write("")
-  st.write("### 1. Separação de Matéria-Prima PEAD (Placas)")
+  st.write("### 1. SEPARAÇÃO DE MATÉRIA-PRIMA PEAD (PLACAS)")
   st.dataframe(df_pead, use_container_width=True, hide_index=True)
 
-  # Gráficos Corporativos
-  col_g1, col_g2 = st.columns(2)
-  with col_g1:
-    st.write("#### ⚖️ Peso PEAD por Tipo de Placa (kg)")
-    st.bar_chart(df_pead.set_index("MEDIDA DA PLACA")["PESO TOTAL (kg)"])
-  with col_g2:
-    st.write("#### 📦 Bandejas ABS por Modelo de Expositor")
-    st.bar_chart(df_geral_modelo.set_index("MODELO")["TOTAL BANDEJAS ABS"])
-
-  st.write("### 2. Resumo de Bandejas por Modelo de Expositor")
+  st.write("### 2. RESUMO DE BANDEJAS POR MODELO DE EXPOSITOR")
   st.dataframe(df_geral_modelo, use_container_width=True, hide_index=True)
 
-  st.write("### 3. Demanda Detalhada por Cliente e ORFA")
+  st.write("### 3. DEMANDA DETALHADA POR CLIENTE E ORFA")
   st.dataframe(df_por_cliente, use_container_width=True, hide_index=True)
 
-  # --- FUNÇÃO DE ESTILIZAÇÃO DO EXCEL PARA NÍVEL EXECUTIVO ---
-  def gerar_excel_formatado_executivo(df_pead_in, df_modelo_in, df_cliente_in):
+  # --- FUNÇÃO DE GERAÇÃO DO EXCEL EXECUTIVO IDÊNTICO AO EXEMPLO ---
+  def gerar_excel_exemplo_diretoria(
+      total_cli,
+      total_mods,
+      total_bnds,
+      total_peso,
+      df_pead_in,
+      df_modelo_in,
+      df_cliente_in,
+  ):
     output_bytes = io.BytesIO()
     wb = openpyxl.Workbook()
-    # Remover aba padrão
-    wb.remove(wb.active)
+    ws = wb.active
+    ws.title = "Relatório Executivo"
+    ws.views.sheetView[0].showGridLines = True
 
     cor_header = "1F497D"
-    cor_zebrado = "F2F5F9"
+    cor_kpi_bg = "F2F5F9"
+    cor_zebrado = "F8F9FA"
 
-    font_title = Font(name="Calibri", size=14, bold=True, color="1F497D")
-    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    font_body = Font(name="Calibri", size=11)
-    font_total = Font(name="Calibri", size=11, bold=True)
+    font_kpi_title = Font(name="Calibri", size=9, bold=True, color="555555")
+    font_kpi_val = Font(name="Calibri", size=14, bold=True, color="1F497D")
+    font_section = Font(name="Calibri", size=11, bold=True, color="1F497D")
+    font_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    font_body = Font(name="Calibri", size=10)
+    font_total = Font(name="Calibri", size=10, bold=True)
 
     border_thin = Border(
         left=Side(style="thin", color="D9D9D9"),
@@ -229,42 +231,56 @@ if uploaded_file is not None:
         top=Side(style="thin", color="D9D9D9"),
         bottom=Side(style="thin", color="D9D9D9"),
     )
+    border_kpi = Border(
+        left=Side(style="medium", color="1F497D"),
+        right=Side(style="medium", color="1F497D"),
+        top=Side(style="medium", color="1F497D"),
+        bottom=Side(style="medium", color="1F497D"),
+    )
 
-    aba_config = [
-        (
-            "Separacao_PEAD",
-            "RELATÓRIO DE SEPARAÇÃO DE MATÉRIA-PRIMA PEAD",
-            df_pead_in,
-        ),
-        (
-            "Resumo_Modelo",
-            "RESUMO DE BANDEJAS ABS POR MODELO DE EXPOSITOR",
-            df_modelo_in,
-        ),
-        (
-            "Detalhamento_Itens",
-            "DEMANDA DETALHADA POR CLIENTE E ORFA",
-            df_cliente_in,
-        ),
+    # --- BLOCO DE KPIS SUPERIORES (Linhas 1 e 2) ---
+    kpis = [
+        ("TOTAL DE CLIENTES", total_cli, "#,##0", "A", "B"),
+        ("MÓDULOS PROGRAMADOS", total_mods, "#,##0.00", "C", "D"),
+        ("TOTAL BANDEJAS ABS", total_bnds, "#,##0", "E", "F"),
+        ("PESO PEAD (kg)", total_peso, '#,##0.00" kg"', "G", "H"),
     ]
 
-    for title_aba, titulo_principal, df_data in aba_config:
-      ws = wb.create_sheet(title=title_aba)
-      ws.views.sheetView[0].showGridLines = True
+    for titulo, valor, formato, col_ini, col_fim in kpis:
+      ws.merge_cells(f"{col_ini}1:{col_fim}1")
+      ws.merge_cells(f"{col_ini}2:{col_fim}2")
 
-      # Título Principal
-      max_cols = len(df_data.columns)
-      ws.merge_cells(
-          start_row=1, start_column=1, end_row=1, end_column=max_cols
-      )
-      cell_t = ws.cell(row=1, column=1, value=titulo_principal)
-      cell_t.font = font_title
-      cell_t.alignment = Alignment(horizontal="left", vertical="center")
-      ws.row_dimensions[1].height = 30
+      c_t = ws[f"{col_ini}1"]
+      c_t.value = titulo
+      c_t.font = font_kpi_title
+      c_t.alignment = Alignment(horizontal="center", vertical="center")
 
-      # Cabeçalhos na Linha 3
+      c_v = ws[f"{col_ini}2"]
+      c_v.value = valor
+      c_v.font = font_kpi_val
+      c_v.number_format = formato
+      c_v.alignment = Alignment(horizontal="center", vertical="center")
+
+      ws.row_dimensions[1].height = 16
+      ws.row_dimensions[2].height = 22
+
+    current_row = 4
+
+    blocos = [
+        ("1. SEPARAÇÃO DE MATÉRIA-PRIMA PEAD (PLACAS)", df_pead_in),
+        ("2. RESUMO DE BANDEJAS POR MODELO DE EXPOSITOR", df_modelo_in),
+        ("3. DEMANDA DETALHADA POR CLIENTE E ORFA", df_cliente_in),
+    ]
+
+    for titulo_secao, df_data in blocos:
+      # Título da Seção
+      ws.cell(row=current_row, column=1, value=titulo_secao).font = font_section
+      ws.row_dimensions[current_row].height = 22
+      current_row += 1
+
+      # Cabeçalhos
       for col_idx, col_name in enumerate(df_data.columns, 1):
-        c = ws.cell(row=3, column=col_idx, value=col_name)
+        c = ws.cell(row=current_row, column=col_idx, value=col_name)
         c.font = font_header
         c.fill = PatternFill(
             start_color=cor_header, end_color=cor_header, fill_type="solid"
@@ -273,15 +289,18 @@ if uploaded_file is not None:
             horizontal="center", vertical="center", wrap_text=True
         )
         c.border = border_thin
-      ws.row_dimensions[3].height = 25
+      ws.row_dimensions[current_row].height = 22
+      header_row = current_row
+      current_row += 1
 
-      # Preenchimento de Dados
-      for row_idx, row_values in enumerate(df_data.values, 4):
-        ws.row_dimensions[row_idx].height = 20
-        is_even = row_idx % 2 == 0
+      # Dados
+      start_data_row = current_row
+      for row_values in df_data.values:
+        ws.row_dimensions[current_row].height = 18
+        is_even = current_row % 2 == 0
 
         for col_idx, val in enumerate(row_values, 1):
-          c = ws.cell(row=row_idx, column=col_idx, value=val)
+          c = ws.cell(row=current_row, column=col_idx, value=val)
           c.font = font_body
           c.border = border_thin
 
@@ -292,7 +311,6 @@ if uploaded_file is not None:
                 fill_type="solid",
             )
 
-          # Formatações Numéricas
           if isinstance(val, float):
             c.number_format = "#,##0.00"
             c.alignment = Alignment(horizontal="right", vertical="center")
@@ -301,52 +319,63 @@ if uploaded_file is not None:
             c.alignment = Alignment(horizontal="right", vertical="center")
           else:
             c.alignment = Alignment(horizontal="left", vertical="center")
+        current_row += 1
 
-      # Linha de Totais na Última Linha
-      tot_row = len(df_data) + 4
-      ws.row_dimensions[tot_row].height = 22
-      c_tot_lbl = ws.cell(row=tot_row, column=1, value="TOTAL GERAL")
+      end_data_row = current_row - 1
+
+      # Linha de Totais
+      ws.row_dimensions[current_row].height = 20
+      c_tot_lbl = ws.cell(row=current_row, column=1, value="TOTAL GERAL")
       c_tot_lbl.font = font_total
       c_tot_lbl.border = border_thin
+      c_tot_lbl.alignment = Alignment(horizontal="left", vertical="center")
 
       for col_idx, col_name in enumerate(df_data.columns, 1):
         if col_idx > 1:
-          c_tot = ws.cell(row=tot_row, column=col_idx)
+          c_tot = ws.cell(row=current_row, column=col_idx)
           c_tot.font = font_total
           c_tot.border = border_thin
-
           col_letter = get_column_letter(col_idx)
-          # Se a coluna for numérica, adiciona fórmula de SUM
+
           if df_data[col_name].dtype in ["int64", "float64"]:
-            c_tot.value = f"=SUM({col_letter}4:{col_letter}{tot_row-1})"
+            c_tot.value = (
+                f"=SUM({col_letter}{start_data_row}:{col_letter}{end_data_row})"
+            )
             c_tot.alignment = Alignment(horizontal="right", vertical="center")
             if df_data[col_name].dtype == "float64":
               c_tot.number_format = "#,##0.00"
             else:
               c_tot.number_format = "#,##0"
 
-      # Auto-ajuste de Largura de Coluna
-      for col in ws.columns:
-        max_len = 0
-        col_letter = get_column_letter(col[0].column)
-        for cell in col:
-          if cell.row >= 3:
-            v_str = str(cell.value or "")
-            if len(v_str) > max_len:
-              max_len = len(v_str)
-        ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
+      current_row += 3
+
+    # Ajuste automático de largura de colunas
+    for col in ws.columns:
+      max_len = 0
+      col_letter = get_column_letter(col[0].column)
+      for cell in col:
+        v_str = str(cell.value or "")
+        if len(v_str) > max_len:
+          max_len = len(v_str)
+      ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
 
     wb.save(output_bytes)
     output_bytes.seek(0)
     return output_bytes.getvalue()
 
-  processed_data = gerar_excel_formatado_executivo(
-      df_pead, df_geral_modelo, df_por_cliente
+  processed_data = gerar_excel_exemplo_diretoria(
+      total_clientes,
+      total_modulos,
+      total_bandejas_abs,
+      total_peso_pead,
+      df_pead,
+      df_geral_modelo,
+      df_por_cliente,
   )
 
   st.write("")
   st.download_button(
-      label="📥 Descarregar Relatório Executivo Formato Diretoria (.xlsx)",
+      label="📥 Descarregar Relatório Executivo Padrão Diretoria (.xlsx)",
       data=processed_data,
       file_name="Relatorio_Executivo_Bandejas_Com_PEAD.xlsx",
       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
