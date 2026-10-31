@@ -1,174 +1,354 @@
 import io
-import pandas as pd
-import streamlit as st
+import math
+import re
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+import pandas as pd
+import streamlit as st
 
-# --- TÍTULO DA PÁGINA ---
-st.title("📊 Portal Executivo | Cálculo de Bandejas & PEAD")
-st.markdown("Painel gerencial para acompanhamento de produção, pesos e distribuição de materiais.")
-st.markdown("---")
+# --- ESTILIZAÇÃO DO CABEÇALHO DA PÁGINA ---
+st.markdown(
+    """
+    <div style="background-color: #1F497D; color: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <h2 style="margin: 0; font-weight: 700;">📦 CÁLCULO DE BANDEJAS ABS E MATÉRIA-PRIMA PEAD</h2>
+        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Painel de Engenharia & PCP - Relatório Gerencial Executivo</p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
 
-# --- DADOS DE EXEMPLO / SIMULAÇÃO DE DADOS DO PCP ---
-# (Aqui entram os seus dados reais de cálculo de bandejas)
-@st.cache_data
-def carregar_dados():
-    dados = {
-        "MEDIDA": ["1000 × 510", "750 × 500", "780 × 600", "1200 × 600", "900 × 500"],
-        "ESPESSURA": ["5,5 mm", "5,5 mm", "5,5 mm", "5,5 mm", "5,5 mm"],
-        "TIPO DE BANDEJA": ["L290 × C790", "L290 × C530", "L290 × C410", "L290 × C950", "L290 × C680"],
-        "QTD PEÇAS": [548, 328, 104, 420, 215],
-        "PESO UNIT (kg)": [2.50, 1.84, 2.29, 3.10, 2.10],
-    }
-    df = pd.DataFrame(dados)
-    df["PESO TOTAL (kg)"] = df["QTD PEÇAS"] * df["PESO UNIT (kg)"]
-    return df
+st.write("")
 
-df_resultado = carregar_dados()
+uploaded_file = st.file_uploader(
+    "Arraste ou selecione o seu ficheiro Excel de produção (.xlsx, .xls)",
+    type=["xlsx", "xls", "csv"],
+)
 
-# --- CARTOES DE MÉTRICAS (KPIs EXECUTIVOS) ---
-col1, col2, col3 = st.columns(3)
+if uploaded_file is not None:
+  try:
+    if uploaded_file.name.endswith(".xls"):
+      df = pd.read_excel(uploaded_file, engine="xlrd")
+    else:
+      df = pd.read_excel(uploaded_file, engine="openpyxl")
+  except Exception:
+    df = pd.read_excel(uploaded_file)
 
-total_pecas = df_resultado["QTD PEÇAS"].sum()
-peso_total_geral = df_resultado["PESO TOTAL (kg)"].sum()
-total_itens = len(df_resultado)
+  df.columns = [str(col).strip().upper() for col in df.columns]
 
-with col1:
-    st.metric(label="📦 Total de Peças Produzidas", value=f"{total_pecas:,}".replace(",", "."))
-with col2:
-    st.metric(label="⚖️ Peso Total Geral", value=f"{peso_total_geral:,.2f} kg".replace(",", "X").replace(".", ",").replace("X", "."))
-with col3:
-    st.metric(label="📋 Itens / Medidas Atendidas", value=total_itens)
+  FATORES_BANDEJAS = {
+      "VCA2P": {"C790": 4, "C530": 8, "C410": 0},
+      "VRA2P": {"C790": 4, "C530": 0, "C410": 8},
+      "VRA1P": {"C790": 4, "C530": 0, "C410": 4},
+      "VRAG": {"C790": 4, "C530": 0, "C410": 0},
+      "VCAG": {"C790": 4, "C530": 0, "C410": 0},
+  }
+  MODELOS_VALIDOS = list(FATORES_BANDEJAS.keys())
 
-st.markdown("---")
+  def extrair_modulos_por_modelo(texto_alinhamento, dimensao_total):
+    texto = str(texto_alinhamento).upper().replace(",", ".")
+    modulos_por_modelo = {}
+    encontrados = re.findall(r"([A-Z0-9]+)\s*\(([\d\.]+)\)", texto)
 
-# --- SEÇÃO DA TABELA VISUAL NA TELA ---
-st.subheader("📋 Detalhamento Executivo por Medida e Lote")
-st.dataframe(df_resultado, use_container_width=True, hide_index=True)
+    if encontrados:
+      for modelo, tamanho_str in encontrados:
+        if modelo in MODELOS_VALIDOS:
+          try:
+            metragem = float(tamanho_str)
+            mods = metragem / 1.25
+            modulos_por_modelo[modelo] = (
+                modulos_por_modelo.get(modelo, 0.0) + mods
+            )
+          except Exception:
+            pass
 
-# --- GRÁFICO EXECUTIVO ---
-st.subheader("📈 Distribuição de Peso Total por Medida")
-st.bar_chart(df_resultado.set_index("MEDIDA")["PESO TOTAL (kg)"])
+    if not modulos_por_modelo:
+      for modelo in MODELOS_VALIDOS:
+        if modelo in texto:
+          modulos_por_modelo[modelo] = (
+              dimensao_total / 1.25 if dimensao_total > 0 else 0
+          )
+          break
+    return modulos_por_modelo
 
-st.markdown("---")
-
-# --- FUNÇÃO DE GERAÇÃO DO EXCEL PROFISSIONAL (OPENPYXL) ---
-def gerar_excel_executivo(df):
-    output = io.BytesIO()
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "Relatório Executivo"
-
-    # Garantir visual limpo ativando linhas de grade
-    sheet.views.sheetView[0].showGridLines = True
-
-    # Cores e Estilos Corporativos
-    cor_cabecalho = "1F497D"  # Azul Executivo Escuro
-    cor_linha_par = "F2F5F9"  # Azul bem claro para listras
-    fonte_branca = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    fonte_padrao = Font(name="Calibri", size=11)
-    fonte_negrito = Font(name="Calibri", size=11, bold=True)
-    
-    borda_fina = Border(
-        left=Side(style='thin', color='D9D9D9'),
-        right=Side(style='thin', color='D9D9D9'),
-        top=Side(style='thin', color='D9D9D9'),
-        bottom=Side(style='thin', color='D9D9D9')
+  lista_detalhada = []
+  for _, row in df.iterrows():
+    cliente = str(row.get("NAME", row.get("CLIENTE", "N/A"))).strip()
+    orfa = str(row.get("ORFA", "N/A")).strip()
+    linha = str(row.get("LINHA", "N/A")).strip()
+    dimensao_val = row.get(
+        "DIMENSÃO", row.get("DIMENSAO", row.get("TAMANHO", 0))
+    )
+    alinhamento = (
+        str(row.get("ALINHAMENTO", row.get("MODELO", ""))).strip().upper()
     )
 
-    # Título do Relatório na Planilha
-    sheet.merge_cells("A1:F1")
-    sheet["A1"] = "RELATÓRIO EXECUTIVO - PRODUÇÃO DE BANDEJAS & PEAD"
-    sheet["A1"].font = Font(name="Calibri", size=14, bold=True, color="1F497D")
-    sheet["A1"].alignment = Alignment(horizontal="center", vertical="center")
-    sheet.row_dimensions[1].height = 30
+    try:
+      dimensao = float(dimensao_val)
+    except Exception:
+      dimensao = 0.0
 
-    # Cabeçalho da Tabela (Linha 3)
-    headers = list(df.columns)
-    for col_num, header in enumerate(headers, 1):
-        cell = sheet.cell(row=3, column=col_num)
-        cell.value = header
-        cell.font = fonte_branca
-        cell.fill = PatternFill(start_color=cor_cabecalho, end_color=cor_cabecalho, fill_type="solid")
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = borda_fina
-    sheet.row_dimensions[3].height = 25
+    modulos_dict = extrair_modulos_por_modelo(alinhamento, dimensao)
 
-    # Preenchimento dos Dados
-    for row_idx, row_data in enumerate(df.values, 4):
-        sheet.row_dimensions[row_idx].height = 20
-        is_par = (row_idx % 2 == 0)
-        
-        for col_idx, value in enumerate(row_data, 1):
-            cell = sheet.cell(row=row_idx, column=col_idx)
-            cell.value = value
-            cell.font = fonte_padrao
-            cell.border = borda_fina
-            
-            # Fundo zebrado elegante
-            if is_par:
-                cell.fill = PatternFill(start_color=cor_linha_par, end_color=cor_linha_par, fill_type="solid")
+    for modelo, mod_qtd in modulos_dict.items():
+      fatores = FATORES_BANDEJAS.get(
+          modelo, {"C790": 0, "C530": 0, "C410": 0}
+      )
+      c790 = int(round(mod_qtd * fatores["C790"]))
+      c530 = int(round(mod_qtd * fatores["C530"]))
+      c410 = int(round(mod_qtd * fatores["C410"]))
+      total_bandejas = c790 + c530 + c410
 
-            # Alinhamentos e Formatos Numéricos
-            if isinstance(value, (int, float)):
-                cell.alignment = Alignment(horizontal="right", vertical="center")
-                if isinstance(value, float):
-                    cell.number_format = '#,##0.00'
-                else:
-                    cell.number_format = '#,##0'
+      lista_detalhada.append({
+          "CLIENTE": cliente,
+          "ORFA": orfa,
+          "LINHA": linha,
+          "ALINHAMENTO": alinhamento,
+          "MODELO": modelo,
+          "MÓDULOS (1,25m)": mod_qtd,
+          "BANDEJA L290 C790": c790,
+          "BANDEJA L290 C530": c530,
+          "BANDEJA L290 C410": c410,
+          "TOTAL BANDEJAS ABS": total_bandejas,
+      })
+
+  df_detalhado = pd.DataFrame(lista_detalhada)
+
+  df_por_cliente = df_detalhado.groupby(
+      ["CLIENTE", "ORFA", "MODELO"], as_index=False
+  ).agg({
+      "MÓDULOS (1,25m)": "sum",
+      "BANDEJA L290 C790": "sum",
+      "BANDEJA L290 C530": "sum",
+      "BANDEJA L290 C410": "sum",
+      "TOTAL BANDEJAS ABS": "sum",
+  })
+
+  df_geral_modelo = df_detalhado.groupby("MODELO", as_index=False).agg({
+      "MÓDULOS (1,25m)": "sum",
+      "BANDEJA L290 C790": "sum",
+      "BANDEJA L290 C530": "sum",
+      "BANDEJA L290 C410": "sum",
+      "TOTAL BANDEJAS ABS": "sum",
+  })
+
+  tot_c790 = df_geral_modelo["BANDEJA L290 C790"].sum()
+  tot_c530 = df_geral_modelo["BANDEJA L290 C530"].sum()
+  tot_c410 = df_geral_modelo["BANDEJA L290 C410"].sum()
+
+  placas_c790 = math.ceil(tot_c790 / 1.0)
+  placas_c530 = math.ceil(tot_c530 / 1.0)
+  placas_c410 = math.ceil(tot_c410 / 2.0)
+
+  pead_data = [
+      {
+          "MEDIDA DA PLACA": "1000 × 510 mm",
+          "ESPESSURA": "5,5 mm",
+          "TIPO DE BANDEJA": "L290 × C790 (REF. MAIOR)",
+          "QTD PLACAS": int(placas_c790),
+          "PESO UNITÁRIO (kg)": 2.50,
+          "PESO TOTAL (kg)": round(placas_c790 * 2.50, 2),
+      },
+      {
+          "MEDIDA DA PLACA": "750 × 500 mm",
+          "ESPESSURA": "5,5 mm",
+          "TIPO DE BANDEJA": "L290 × C530 (REF. MÉDIA)",
+          "QTD PLACAS": int(placas_c530),
+          "PESO UNITÁRIO (kg)": 1.84,
+          "PESO TOTAL (kg)": round(placas_c530 * 1.84, 2),
+      },
+      {
+          "MEDIDA DA PLACA": "780 × 600 mm",
+          "ESPESSURA": "5,5 mm",
+          "TIPO DE BANDEJA": "L290 × C410 (REF. MENOR - 2 un/placa)",
+          "QTD PLACAS": int(placas_c410),
+          "PESO UNITÁRIO (kg)": 2.29,
+          "PESO TOTAL (kg)": round(placas_c410 * 2.29, 2),
+      },
+  ]
+  df_pead = pd.DataFrame(pead_data)
+
+  total_peso_pead = df_pead["PESO TOTAL (kg)"].sum()
+
+  # --- PAINEL VISUAL DE MÉTRICAS NA TELA ---
+  st.write("---")
+  col1, col2, col3, col4 = st.columns(4)
+  col1.metric("🏢 Total de Clientes", df_por_cliente["CLIENTE"].nunique())
+  col2.metric(
+      "📐 Módulos Programados", f"{df_detalhado['MÓDULOS (1,25m)'].sum():.2f}"
+  )
+  col3.metric(
+      "📦 Total Bandejas ABS",
+      f"{int(df_detalhado['TOTAL BANDEJAS ABS'].sum()):,}".replace(",", "."),
+  )
+  col4.metric(
+      "⚖️ Peso Total PEAD",
+      f"{total_peso_pead:,.2f} kg"
+      .replace(",", "X")
+      .replace(".", ",")
+      .replace("X", "."),
+  )
+
+  st.write("")
+  st.write("### 1. Separação de Matéria-Prima PEAD (Placas)")
+  st.dataframe(df_pead, use_container_width=True, hide_index=True)
+
+  # Gráficos Corporativos
+  col_g1, col_g2 = st.columns(2)
+  with col_g1:
+    st.write("#### ⚖️ Peso PEAD por Tipo de Placa (kg)")
+    st.bar_chart(df_pead.set_index("MEDIDA DA PLACA")["PESO TOTAL (kg)"])
+  with col_g2:
+    st.write("#### 📦 Bandejas ABS por Modelo de Expositor")
+    st.bar_chart(df_geral_modelo.set_index("MODELO")["TOTAL BANDEJAS ABS"])
+
+  st.write("### 2. Resumo de Bandejas por Modelo de Expositor")
+  st.dataframe(df_geral_modelo, use_container_width=True, hide_index=True)
+
+  st.write("### 3. Demanda Detalhada por Cliente e ORFA")
+  st.dataframe(df_por_cliente, use_container_width=True, hide_index=True)
+
+  # --- FUNÇÃO DE ESTILIZAÇÃO DO EXCEL PARA NÍVEL EXECUTIVO ---
+  def gerar_excel_formatado_executivo(df_pead_in, df_modelo_in, df_cliente_in):
+    output_bytes = io.BytesIO()
+    wb = openpyxl.Workbook()
+    # Remover aba padrão
+    wb.remove(wb.active)
+
+    cor_header = "1F497D"
+    cor_zebrado = "F2F5F9"
+
+    font_title = Font(name="Calibri", size=14, bold=True, color="1F497D")
+    font_header = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    font_body = Font(name="Calibri", size=11)
+    font_total = Font(name="Calibri", size=11, bold=True)
+
+    border_thin = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    aba_config = [
+        (
+            "Separacao_PEAD",
+            "RELATÓRIO DE SEPARAÇÃO DE MATÉRIA-PRIMA PEAD",
+            df_pead_in,
+        ),
+        (
+            "Resumo_Modelo",
+            "RESUMO DE BANDEJAS ABS POR MODELO DE EXPOSITOR",
+            df_modelo_in,
+        ),
+        (
+            "Detalhamento_Itens",
+            "DEMANDA DETALHADA POR CLIENTE E ORFA",
+            df_cliente_in,
+        ),
+    ]
+
+    for title_aba, titulo_principal, df_data in aba_config:
+      ws = wb.create_sheet(title=title_aba)
+      ws.views.sheetView[0].showGridLines = True
+
+      # Título Principal
+      max_cols = len(df_data.columns)
+      ws.merge_cells(
+          start_row=1, start_column=1, end_row=1, end_column=max_cols
+      )
+      cell_t = ws.cell(row=1, column=1, value=titulo_principal)
+      cell_t.font = font_title
+      cell_t.alignment = Alignment(horizontal="left", vertical="center")
+      ws.row_dimensions[1].height = 30
+
+      # Cabeçalhos na Linha 3
+      for col_idx, col_name in enumerate(df_data.columns, 1):
+        c = ws.cell(row=3, column=col_idx, value=col_name)
+        c.font = font_header
+        c.fill = PatternFill(
+            start_color=cor_header, end_color=cor_header, fill_type="solid"
+        )
+        c.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
+        c.border = border_thin
+      ws.row_dimensions[3].height = 25
+
+      # Preenchimento de Dados
+      for row_idx, row_values in enumerate(df_data.values, 4):
+        ws.row_dimensions[row_idx].height = 20
+        is_even = row_idx % 2 == 0
+
+        for col_idx, val in enumerate(row_values, 1):
+          c = ws.cell(row=row_idx, column=col_idx, value=val)
+          c.font = font_body
+          c.border = border_thin
+
+          if is_even:
+            c.fill = PatternFill(
+                start_color=cor_zebrado,
+                end_color=cor_zebrado,
+                fill_type="solid",
+            )
+
+          # Formatações Numéricas
+          if isinstance(val, float):
+            c.number_format = "#,##0.00"
+            c.alignment = Alignment(horizontal="right", vertical="center")
+          elif isinstance(val, int):
+            c.number_format = "#,##0"
+            c.alignment = Alignment(horizontal="right", vertical="center")
+          else:
+            c.alignment = Alignment(horizontal="left", vertical="center")
+
+      # Linha de Totais na Última Linha
+      tot_row = len(df_data) + 4
+      ws.row_dimensions[tot_row].height = 22
+      c_tot_lbl = ws.cell(row=tot_row, column=1, value="TOTAL GERAL")
+      c_tot_lbl.font = font_total
+      c_tot_lbl.border = border_thin
+
+      for col_idx, col_name in enumerate(df_data.columns, 1):
+        if col_idx > 1:
+          c_tot = ws.cell(row=tot_row, column=col_idx)
+          c_tot.font = font_total
+          c_tot.border = border_thin
+
+          col_letter = get_column_letter(col_idx)
+          # Se a coluna for numérica, adiciona fórmula de SUM
+          if df_data[col_name].dtype in ["int64", "float64"]:
+            c_tot.value = f"=SUM({col_letter}4:{col_letter}{tot_row-1})"
+            c_tot.alignment = Alignment(horizontal="right", vertical="center")
+            if df_data[col_name].dtype == "float64":
+              c_tot.number_format = "#,##0.00"
             else:
-                cell.alignment = Alignment(horizontal="left", vertical="center")
+              c_tot.number_format = "#,##0"
 
-    # Linha de Totais
-    total_row_idx = len(df) + 4
-    sheet.row_dimensions[total_row_idx].height = 22
-    
-    cell_label = sheet.cell(row=total_row_idx, column=1)
-    cell_label.value = "TOTAL GERAL"
-    cell_label.font = fonte_negrito
-    cell_label.alignment = Alignment(horizontal="left", vertical="center")
-    cell_label.border = borda_fina
-
-    for col_idx in range(2, len(headers) + 1):
-        cell = sheet.cell(row=total_row_idx, column=col_idx)
-        cell.border = borda_fina
-        if col_idx == 4: # Coluna QTD PEÇAS
-            col_letter = get_column_letter(col_idx)
-            cell.value = f"=SUM({col_letter}4:{col_letter}{total_row_idx-1})"
-            cell.font = fonte_negrito
-            cell.number_format = '#,##0'
-            cell.alignment = Alignment(horizontal="right", vertical="center")
-        elif col_idx == 6: # Coluna PESO TOTAL
-            col_letter = get_column_letter(col_idx)
-            cell.value = f"=SUM({col_letter}4:{col_letter}{total_row_idx-1})"
-            cell.font = fonte_negrito
-            cell.number_format = '#,##0.00'
-            cell.alignment = Alignment(horizontal="right", vertical="center")
-
-    # Ajuste automático inteligente da largura das colunas
-    for col in sheet.columns:
+      # Auto-ajuste de Largura de Coluna
+      for col in ws.columns:
         max_len = 0
         col_letter = get_column_letter(col[0].column)
         for cell in col:
-            if cell.row >= 3: # Ignorar título principal para o cálculo de largura
-                val_str = str(cell.value or '')
-                if len(val_str) > max_len:
-                    max_len = len(val_str)
-        sheet.column_dimensions[col_letter].width = max(max_len + 5, 15)
+          if cell.row >= 3:
+            v_str = str(cell.value or "")
+            if len(v_str) > max_len:
+              max_len = len(v_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
 
-    workbook.save(output)
-    output.seek(0)
-    return output
+    wb.save(output_bytes)
+    output_bytes.seek(0)
+    return output_bytes.getvalue()
 
-# --- BOTÃO DE DOWNLOAD EXECUTIVO ---
-st.markdown("### 📥 Exportar Relatório para a Diretoria")
-excel_data = gerar_excel_executivo(df_resultado)
+  processed_data = gerar_excel_formatado_executivo(
+      df_pead, df_geral_modelo, df_por_cliente
+  )
 
-st.download_button(
-    label="📥 Baixar Relatório Executivo em Excel (Impecável)",
-    data=excel_data,
-    file_name="Relatorio_Executivo_Bandejas_PEAD.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    use_container_width=True
-)
+  st.write("")
+  st.download_button(
+      label="📥 Descarregar Relatório Executivo Formato Diretoria (.xlsx)",
+      data=processed_data,
+      file_name="Relatorio_Executivo_Bandejas_Com_PEAD.xlsx",
+      mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      use_container_width=True,
+  )
