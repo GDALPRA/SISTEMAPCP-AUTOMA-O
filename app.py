@@ -6,6 +6,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Executa diretamente o sistema de bandejas e PEAD
-pg = st.Page("views/bandejas_pead.py", title="Cálculo de Bandejas & PEAD", icon="📦")
-pg.run()
+# Executa o ficheiro da vista diretamente
+with open("views/bandejas_pead.py", encoding="utf-8") as f:
+    exec(f.read())
