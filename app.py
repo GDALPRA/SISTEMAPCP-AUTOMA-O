@@ -6,13 +6,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Definindo as páginas do site
-pg = st.navigation([
-    st.Page("views/bandejas_pead.py", title="Início / Visão Geral", icon="🏠"),
-    st.Page("views/bandejas_pead.py", title="Cálculo de Bandejas & PEAD", icon="📦"),
-    # Quando tiver novas automações, basta adicioná-las aqui embaixo:
-    # st.Page("views/futuro_sistema.py", title="Novo Sistema", icon="🔧"),
-])
-
-# Executa a navegação
+# Executa diretamente o sistema de bandejas e PEAD
+pg = st.Page("views/bandejas_pead.py", title="Cálculo de Bandejas & PEAD", icon="📦")
 pg.run()
