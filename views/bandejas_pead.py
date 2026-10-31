@@ -198,7 +198,7 @@ if uploaded_file is not None:
   st.write("### 3. DEMANDA DETALHADA POR CLIENTE E ORFA")
   st.dataframe(df_por_cliente, use_container_width=True, hide_index=True)
 
-  # --- FUNÇÃO DE GERAÇÃO DO EXCEL EXECUTIVO IDÊNTICO AO EXEMPLO ---
+  # --- FUNÇÃO DE GERAÇÃO DO EXCEL EXECUTIVO IDÊNTICO À REFERÊNCIA ---
   def gerar_excel_exemplo_diretoria(
       total_cli,
       total_mods,
@@ -215,9 +215,10 @@ if uploaded_file is not None:
     ws.views.sheetView[0].showGridLines = True
 
     cor_header = "1F497D"
-    cor_kpi_bg = "F2F5F9"
     cor_zebrado = "F8F9FA"
 
+    font_main_title = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+    font_subtitle = Font(name="Calibri", size=10, italic=True, color="FFFFFF")
     font_kpi_title = Font(name="Calibri", size=9, bold=True, color="555555")
     font_kpi_val = Font(name="Calibri", size=14, bold=True, color="1F497D")
     font_section = Font(name="Calibri", size=11, bold=True, color="1F497D")
@@ -231,14 +232,34 @@ if uploaded_file is not None:
         top=Side(style="thin", color="D9D9D9"),
         bottom=Side(style="thin", color="D9D9D9"),
     )
-    border_kpi = Border(
-        left=Side(style="medium", color="1F497D"),
-        right=Side(style="medium", color="1F497D"),
-        top=Side(style="medium", color="1F497D"),
-        bottom=Side(style="medium", color="1F497D"),
+
+    fill_header = PatternFill(
+        start_color=cor_header, end_color=cor_header, fill_type="solid"
     )
 
-    # --- BLOCO DE KPIS SUPERIORES (Linhas 1 e 2) ---
+    # --- CABEÇALHO PRINCIPAL (Linhas 1 e 2) ---
+    ws.merge_cells("A1:H1")
+    ws.merge_cells("A2:H2")
+
+    c1 = ws["A1"]
+    c1.value = "RELATÓRIO EXECUTIVO - NECESSIDADE DE BANDEJAS E MATÉRIA-PRIMA PEAD"
+    c1.font = font_main_title
+    c1.fill = fill_header
+    c1.alignment = Alignment(horizontal="center", vertical="center")
+
+    c2 = ws["A2"]
+    c2.value = (
+        "Planejamento e Controle da Produção (PCP) | Visão Estratégica para"
+        " Diretoria"
+    )
+    c2.font = font_subtitle
+    c2.fill = fill_header
+    c2.alignment = Alignment(horizontal="center", vertical="center")
+
+    ws.row_dimensions[1].height = 25
+    ws.row_dimensions[2].height = 18
+
+    # --- BLOCO DE KPIS SUPERIORES (Linhas 4 e 5) ---
     kpis = [
         ("TOTAL DE CLIENTES", total_cli, "#,##0", "A", "B"),
         ("MÓDULOS PROGRAMADOS", total_mods, "#,##0.00", "C", "D"),
@@ -247,24 +268,24 @@ if uploaded_file is not None:
     ]
 
     for titulo, valor, formato, col_ini, col_fim in kpis:
-      ws.merge_cells(f"{col_ini}1:{col_fim}1")
-      ws.merge_cells(f"{col_ini}2:{col_fim}2")
+      ws.merge_cells(f"{col_ini}4:{col_fim}4")
+      ws.merge_cells(f"{col_ini}5:{col_fim}5")
 
-      c_t = ws[f"{col_ini}1"]
-      c_t.value = titulo
-      c_t.font = font_kpi_title
-      c_t.alignment = Alignment(horizontal="center", vertical="center")
+      ct = ws[f"{col_ini}4"]
+      ct.value = titulo
+      ct.font = font_kpi_title
+      ct.alignment = Alignment(horizontal="center", vertical="center")
 
-      c_v = ws[f"{col_ini}2"]
-      c_v.value = valor
-      c_v.font = font_kpi_val
-      c_v.number_format = formato
-      c_v.alignment = Alignment(horizontal="center", vertical="center")
+      cv = ws[f"{col_ini}5"]
+      cv.value = valor
+      cv.font = font_kpi_val
+      cv.number_format = formato
+      cv.alignment = Alignment(horizontal="center", vertical="center")
 
-      ws.row_dimensions[1].height = 16
-      ws.row_dimensions[2].height = 22
+    ws.row_dimensions[4].height = 16
+    ws.row_dimensions[5].height = 24
 
-    current_row = 4
+    current_row = 7
 
     blocos = [
         ("1. SEPARAÇÃO DE MATÉRIA-PRIMA PEAD (PLACAS)", df_pead_in),
@@ -282,19 +303,16 @@ if uploaded_file is not None:
       for col_idx, col_name in enumerate(df_data.columns, 1):
         c = ws.cell(row=current_row, column=col_idx, value=col_name)
         c.font = font_header
-        c.fill = PatternFill(
-            start_color=cor_header, end_color=cor_header, fill_type="solid"
-        )
+        c.fill = fill_header
         c.alignment = Alignment(
             horizontal="center", vertical="center", wrap_text=True
         )
         c.border = border_thin
       ws.row_dimensions[current_row].height = 22
-      header_row = current_row
+      start_data_row = current_row + 1
       current_row += 1
 
       # Dados
-      start_data_row = current_row
       for row_values in df_data.values:
         ws.row_dimensions[current_row].height = 18
         is_even = current_row % 2 == 0
