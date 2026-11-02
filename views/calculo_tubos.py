@@ -39,24 +39,61 @@ if uploaded_file is not None:
   COMPRIMENTO_BARRA_PE = 5200.0
   QTD_PES_POR_BARRA = 4
 
-  # Regras de Pés e Vigas por Dimensão de Chassi (em milímetros)
+  # Tabela de Pesos Reais Unitários por Viga (com o desconto de 10mm já aplicado nas medidas)
+  # C1240=3kg, C1490=3kg, C1668=4kg, C1865=4kg, C2240=5kg, C2490=5kg, C2990=6kg, C3740=8kg
+  # Para os pés (barra 5200mm / C5200), o peso unitário da barra é 10kg
+  PESO_BARRA_PE_KG = 10.0
+
+  # Regras de Pés, Vigas e Peso Unitário por Dimensão de Chassi (em milímetros)
   REGRAS_CHASSIS = {
-      1250: {"viga_desconto": 10, "qtd_vigas": 2, "qtd_pes": 2},
-      1500: {"viga_desconto": 10, "qtd_vigas": 2, "qtd_pes": 2},
+      1250: {
+          "viga_desconto": 10,
+          "qtd_vigas": 2,
+          "qtd_pes": 2,
+          "peso_unit_viga": 3.0,
+      },
+      1500: {
+          "viga_desconto": 10,
+          "qtd_vigas": 2,
+          "qtd_pes": 2,
+          "peso_unit_viga": 3.0,
+      },
       1680: {
           "viga_desconto": 10,
           "qtd_vigas": 2,
           "qtd_pes": 3,
-      },  # Corresponde a 1.76 no Excel
+          "peso_unit_viga": 4.0,
+      },  # 1.76m -> viga 1670 (~1668) = 4kg
       1875: {
           "viga_desconto": 10,
           "qtd_vigas": 2,
           "qtd_pes": 3,
-      },  # Corresponde a 1.87 no Excel
-      2250: {"viga_desconto": 10, "qtd_vigas": 2, "qtd_pes": 3},
-      2500: {"viga_desconto": 10, "qtd_vigas": 2, "qtd_pes": 3},
-      3000: {"viga_desconto": 10, "qtd_vigas": 2, "qtd_pes": 4},
-      3750: {"viga_desconto": 10, "qtd_vigas": 2, "qtd_pes": 4},
+          "peso_unit_viga": 4.0,
+      },  # 1.87m -> viga 1865 = 4kg
+      2250: {
+          "viga_desconto": 10,
+          "qtd_vigas": 2,
+          "qtd_pes": 3,
+          "peso_unit_viga": 5.0,
+      },
+      2500: {
+          "viga_desconto": 10,
+          "qtd_vigas": 2,
+          "qtd_pes": 3,
+          "peso_unit_viga": 5.0,
+      },
+      3000: {
+          "viga_desconto": 10,
+          "qtd_vigas": 2,
+          "qtd_pes": 4,
+          "peso_unit_viga": 6.0,
+      },
+      3750: {
+          "viga_desconto": 10,
+          "qtd_vigas": 2,
+          "qtd_pes": 4,
+          "peso_unit_viga": 8.0,
+      },
   }
 
 
@@ -67,13 +104,12 @@ if uploaded_file is not None:
     except:
       return 1250
 
-    # Casos especiais informados pelo usuário
+    # Casos especiais informados
     if 1.74 <= val <= 1.78:
       return 1680  # 1.76 corresponde a 1680mm
     if 1.85 <= val <= 1.89:
       return 1875  # 1.87 corresponde a 1875mm
 
-    # Demais valores em metros (ex: 1.25 -> 1250, 2.5 -> 2500, etc.)
     if val <= 10.0:
       mm = round(val * 1000)
     else:
@@ -82,10 +118,6 @@ if uploaded_file is not None:
     chaves_validas = list(REGRAS_CHASSIS.keys())
     return min(chaves_validas, key=lambda x: abs(x - mm))
 
-
-  # Cálculo do peso linear do tubo 60x30 a partir da bobina (1.4mm x 168mm)
-  PESO_LINEAR_KG_M = (1.4 * 168 * 0.00785) / 1000  # Aprox 1.844 kg/metro
-  PESO_BARRA_5_2M = PESO_LINEAR_KG_M * (COMPRIMENTO_BARRA_PE / 1000.0)
 
   lista_processada = []
 
@@ -109,6 +141,7 @@ if uploaded_file is not None:
         "CHASSI (mm)": dimensao_chassi,
         "QTD CHASSIS": qtd_chassis,
         "COMPR. VIGA (mm)": comprimento_viga_mm,
+        "PESO UNIT. VIGA (kg)": cfg["peso_unit_viga"],
         "QTD VIGAS": total_vigas_nec,
         "QTD PÉS": total_pes_nec,
     })
@@ -117,35 +150,38 @@ if uploaded_file is not None:
 
   # --- CONSOLIDAÇÃO PARA FABRICAÇÃO ---
   df_vigas_resumo = (
-      df_itens.groupby(["CHASSI (mm)", "COMPR. VIGA (mm)"], as_index=False)
+      df_itens.groupby(
+          ["CHASSI (mm)", "COMPR. VIGA (mm)", "PESO UNIT. VIGA (kg)"],
+          as_index=False,
+      )
       .agg({"QTD VIGAS": "sum"})
       .rename(columns={"QTD VIGAS": "TOTAL DE VIGAS"})
   )
   df_vigas_resumo["METRAGEM TOTAL (m)"] = (
       df_vigas_resumo["COMPR. VIGA (mm)"] * df_vigas_resumo["TOTAL DE VIGAS"]
   ) / 1000.0
+  # Peso total calculado usando o peso unitário real da viga
   df_vigas_resumo["PESO TOTAL (kg)"] = (
-      df_vigas_resumo["METRAGEM TOTAL (m)"] * PESO_LINEAR_KG_M
+      df_vigas_resumo["TOTAL DE VIGAS"] * df_vigas_resumo["PESO UNIT. VIGA (kg)"]
   )
-  df_vigas_resumo["BARRAS 5.2m (EST.)"] = df_vigas_resumo[
-      "METRAGEM TOTAL (m)"
-  ].apply(lambda x: math.ceil(x / 5.2))
 
   total_pes_geral = df_itens["QTD PÉS"].sum()
   barras_pes_necessarias = math.ceil(total_pes_geral / QTD_PES_POR_BARRA)
-  peso_total_pes = barras_pes_necessarias * PESO_BARRA_5_2M
+  peso_total_pes = barras_pes_necessarias * PESO_BARRA_PE_KG
 
   pead_data = [{
       "DESCRIÇÃO DO ITEM": "Barras para Pés de Chassi (5200mm - rende 4 pés)",
       "COMPRIMENTO BARRA (mm)": COMPRIMENTO_BARRA_PE,
       "QTD BARRAS": int(barras_pes_necessarias),
-      "PESO UNIT. BARRA (kg)": round(PESO_BARRA_5_2M, 2),
+      "PESO UNIT. BARRA (kg)": PESO_BARRA_PE_KG,
       "PESO TOTAL (kg)": round(peso_total_pes, 2),
   }]
   df_pes_resumo = pd.DataFrame(pead_data)
 
-  total_barras_vigas = df_vigas_resumo["BARRAS 5.2m (EST.)"].sum()
-  total_barras_geral = int(barras_pes_necessarias + total_barras_vigas)
+  total_barras_geral = int(
+      barras_pes_necessarias
+      + math.ceil(df_vigas_resumo["TOTAL DE VIGAS"].sum() / 4)
+  )
   peso_geral_tubos = (
       df_vigas_resumo["PESO TOTAL (kg)"].sum() + peso_total_pes
   )
@@ -214,8 +250,8 @@ if uploaded_file is not None:
     )
 
     # Cabeçalho Principal
-    ws.merge_cells("A1:G1")
-    ws.merge_cells("A2:G2")
+    ws.merge_cells("A1:H1")
+    ws.merge_cells("A2:H2")
 
     c1 = ws["A1"]
     c1.value = (
@@ -227,8 +263,8 @@ if uploaded_file is not None:
 
     c2 = ws["A2"]
     c2.value = (
-        "Bobina: 1.4mm x 168mm | PCP & Engenharia - Visão Estratégica para"
-        " Diretoria"
+        "Pesos Unitários Reais por Viga | PCP & Engenharia - Visão Estratégica"
+        " para Diretoria"
     )
     c2.font = font_subtitle
     c2.fill = fill_header
@@ -242,7 +278,7 @@ if uploaded_file is not None:
         ("TOTAL DE CHASSIS", tot_chassis, "#,##0", "A", "B"),
         ("TOTAL DE PÉS (UN)", tot_pes_un, "#,##0", "C", "C"),
         ("BARRAS TOTAIS (EST.)", tot_barras_tot, "#,##0", "D", "E"),
-        ("PESO TOTAL (kg)", peso_geral, '#,##0.00" kg"', "F", "G"),
+        ("PESO TOTAL (kg)", peso_geral, '#,##0.00" kg"', "F", "H"),
     ]
 
     for titulo, valor, formato, col_ini, col_fim in kpis:
