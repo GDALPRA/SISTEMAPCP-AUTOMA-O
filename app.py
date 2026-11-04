@@ -7,9 +7,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Definição das páginas do portal usando os caminhos corretos
+# Definição das páginas do portal com os nomes corretos dos arquivos
 bandejas_page = st.Page(
-    "views/bandejas.py",
+    "views/bandejas_pead.py",
     title="Bandejas ABS & PEAD",
     icon="📦",
     default=True,
