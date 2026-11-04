@@ -119,7 +119,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
       bottom=Side(style="thin", color=BORDER_GRAY),
   )
 
-  # DEFINIÇÃO CORRETA DA BORDA GROSSA QUE CAUSAVA O ERRO
   thick_border = Border(
       left=Side(style="thin", color=BORDER_GRAY),
       right=Side(style="thin", color=BORDER_GRAY),
