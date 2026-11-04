@@ -1,5 +1,8 @@
 import io
 import pandas as pd
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 import streamlit as st
 
 # --- CONSTANTES TÉCNICAS E CÁLCULO DE PESO ---
@@ -20,13 +23,11 @@ def calcular_chapas_va(df_input):
   detalhamento = []
 
   for idx, row in df_input.iterrows():
-    # Mapeamento dinâmico para aceitar colunas da nova planilha ou colunas genéricas
     cliente = str(row.get("Name", row.get("Cliente / Projeto", "Cliente")))
     orfa = str(row.get("ORFA", row.get("OP / Pedido", f"OP-{idx+1}")))
     linha = str(row.get("LINHA", "VERTICAL ALTO"))
     alinhamento = str(row.get("ALINHAMENTO", "-"))
 
-    # Tratamento da dimensão (Ex: 3.75, 2.50, 1.87, etc)
     dim_raw = row.get("DIMENSÃO", row.get("Modelo Expositor (VA)", "0"))
     dim_str = (
         str(dim_raw)
@@ -38,7 +39,6 @@ def calcular_chapas_va(df_input):
         else str(dim_raw).strip()
     )
 
-    # Cada linha da planilha representa 1 expositor montado (Qtd = 1 por linha)
     qtd = int(row.get("Quantidade (Unid)", 1))
 
     ch_2550 = 0
@@ -48,25 +48,18 @@ def calcular_chapas_va(df_input):
 
     # REGRAS DE NEGÓCIO PCP (CHAPAS CRISTAL 0,43mm):
     if dim_str in ["1.25", "1.5", "2.25", "2.5"]:
-      # 1 bojo + 3 costas + 2 teto + 1 cx forçadora = 7 chapas 2550
       ch_2550 = 7 * qtd
       observacao = f"Uso de CH 2550 para {dim_str}m. Sobram retalhos no corte."
-
     elif dim_str in ["1.87", "3"]:
-      # 1 bojo + 3 costas + 2 teto + 1 cx forçadora = 7 chapas 3780
       ch_3780 = 7 * qtd
       observacao = f"Uso integral de CH 3780 para {dim_str}m."
-
     elif dim_str in ["3.75"]:
-      # 1 CH 4000 (bojo) + 6 CH 3780 (3 costas + 2 teto + 1 cx forçadora)
       ch_4000 = 1 * qtd
       ch_3780 = 6 * qtd
       observacao = "Mistura Padrão 3.75m: 1x CH 4000 (Bojo) + 6x CH 3780."
-
     else:
       observacao = f"⚠️ Dimensão '{dim_raw}' não reconhecida na regra VA."
 
-    # Acumula Totais Gerais
     total_ch_2550 += ch_2550
     total_ch_3780 += ch_3780
     total_ch_4000 += ch_4000
@@ -84,7 +77,6 @@ def calcular_chapas_va(df_input):
         "Observação Técnica": observacao,
     })
 
-  # Cálculo dos Pesos Totais
   peso_2550 = total_ch_2550 * PESO_CHAPA_2550
   peso_3780 = total_ch_3780 * PESO_CHAPA_3780
   peso_4000 = total_ch_4000 * PESO_CHAPA_4000
@@ -102,6 +94,149 @@ def calcular_chapas_va(df_input):
   }
 
   return pd.DataFrame(detalhamento), resumo_chapas
+
+
+def gerar_excel_formatado(df_detalhe, resumo):
+  """Gera um arquivo Excel corporativo formatado com openpyxl."""
+  wb = openpyxl.Workbook()
+
+  # Cores e Estilos
+  NAVY = "1F497D"
+  WHITE = "FFFFFF"
+  ZEBRA = "F2F5F9"
+  BORDER_GRAY = "D9D9D9"
+
+  font_header = Font(name="Calibri", size=11, bold=True, color=WHITE)
+  font_body = Font(name="Calibri", size=11)
+  font_title = Font(name="Calibri", size=13, bold=True, color=NAVY)
+
+  fill_header = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+  fill_zebra = PatternFill(start_color=ZEBRA, end_color=ZEBRA, fill_type="solid")
+
+  thin_border = Border(
+      left=Side(style="thin", color=BORDER_GRAY),
+      right=Side(style="thin", color=BORDER_GRAY),
+      top=Side(style="thin", color=BORDER_GRAY),
+      bottom=Side(style="thin", color=BORDER_GRAY),
+  )
+
+  # --- ABA 1: DETALHAMENTO ---
+  ws1 = wb.active
+  ws1.title = "Detalhamento_Chapas"
+  ws1.views.sheetView[0].showGridLines = True
+
+  # Título
+  ws1.cell(
+      row=1,
+      column=1,
+      value="RELATÓRIO DE CÁLCULO DE CHAPAS CRISTAL (EXPOSITORES VA)",
+  ).font = font_title
+  ws1.row_dimensions[1].height = 25
+
+  # Cabeçalhos
+  headers = list(df_detalhe.columns)
+  for col_idx, h in enumerate(headers, 1):
+    cell = ws1.cell(row=3, column=col_idx, value=h)
+    cell.font = font_header
+    cell.fill = fill_header
+    cell.alignment = Alignment(
+        horizontal="center", vertical="center", wrap_text=True
+    )
+    cell.border = thin_border
+  ws1.row_dimensions[3].height = 28
+
+  # Dados
+  for row_idx, row_data in enumerate(df_detalhe.values, 4):
+    ws1.row_dimensions[row_idx].height = 20
+    for col_idx, val in enumerate(row_data, 1):
+      cell = ws1.cell(row=row_idx, column=col_idx, value=val)
+      cell.font = font_body
+      cell.border = thin_border
+
+      # Alinhamentos específicos
+      if col_idx in [1, 3, 4, 5, 6, 7, 8, 9]:
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+      else:
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+      # Efeito Zebra
+      if row_idx % 2 == 0:
+        cell.fill = fill_zebra
+
+  # Largura automática
+  for col in ws1.columns:
+    max_len = max(len(str(cell.value or "")) for cell in col)
+    col_letter = get_column_letter(col[0].column)
+    ws1.column_dimensions[col_letter].width = max(max_len + 4, 16)
+
+  # --- ABA 2: RESUMO EXECUTIVO ---
+  ws2 = wb.create_sheet(title="Resumo_Material_PCP")
+  ws2.views.sheetView[0].showGridLines = True
+
+  ws2.cell(
+      row=1, column=1, value="RESUMO GERAL DE COMPRAS E ALMOXARIFADO"
+  ).font = font_title
+  ws2.row_dimensions[1].height = 25
+
+  resumo_headers = [
+      "Tipo de Chapa / Insumo",
+      "Quantidade Total (Unid)",
+      "Peso Estimado Total (Kg)",
+  ]
+  for col_idx, h in enumerate(resumo_headers, 1):
+    cell = ws2.cell(row=3, column=col_idx, value=h)
+    cell.font = font_header
+    cell.fill = fill_header
+    cell.alignment = Alignment(horizontal="center", vertical="center")
+    cell.border = thin_border
+  ws2.row_dimensions[3].height = 28
+
+  resumo_rows = [
+      [
+          "Chapa 0,43 x 1200 x 2550 mm",
+          resumo["total_ch_2550"],
+          round(resumo["peso_2550_kg"], 2),
+      ],
+      [
+          "Chapa 0,43 x 1200 x 3780 mm",
+          resumo["total_ch_3780"],
+          round(resumo["peso_3780_kg"], 2),
+      ],
+      [
+          "Chapa 0,43 x 1200 x 4000 mm",
+          resumo["total_ch_4000"],
+          round(resumo["peso_4000_kg"], 2),
+      ],
+      [
+          "TOTAL GERAL",
+          resumo["total_chapas_geral"],
+          round(resumo["peso_total_kg"], 2),
+      ],
+  ]
+
+  for r_idx, r_data in enumerate(resumo_rows, 4):
+    ws2.row_dimensions[r_idx].height = 22
+    for c_idx, val in enumerate(r_data, 1):
+      cell = ws2.cell(row=r_idx, column=c_idx, value=val)
+      cell.border = thin_border
+      if r_idx == 7:  # Linha do Total Geral em destaque
+        cell.font = Font(name="Calibri", size=11, bold=True)
+      else:
+        cell.font = font_body
+
+      if c_idx > 1:
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+      else:
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+
+  for col in ws2.columns:
+    max_len = max(len(str(cell.value or "")) for cell in col)
+    col_letter = get_column_letter(col[0].column)
+    ws2.column_dimensions[col_letter].width = max(max_len + 6, 25)
+
+  output = io.BytesIO()
+  wb.save(output)
+  return output.getvalue()
 
 
 # --- INTERFACE EXECUTIVA STREAMLIT ---
@@ -143,35 +278,14 @@ if uploaded_file:
     )
 
     st.markdown("---")
-    st.subheader("📄 Detalhamento da Insumos por Item da Montagem")
+    st.subheader("📄 Detalhamento de Insumos por Item da Montagem")
     st.dataframe(df_resultado, use_container_width=True)
 
-    # GERADOR DE RELATÓRIO EXCEL COMPLETO
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-      df_resultado.to_excel(
-          writer, index=False, sheet_name="Detalhamento_Chapas"
-      )
-
-      # Resumo Executivo para Compras e Almoxarifado
-      df_resumo_export = pd.DataFrame([{
-          "Chapa 0,43x1200x2550 mm (Qtd)": resumo["total_ch_2550"],
-          "Peso CH 2550 (Kg)": round(resumo["peso_2550_kg"], 2),
-          "Chapa 0,43x1200x3780 mm (Qtd)": resumo["total_ch_3780"],
-          "Peso CH 3780 (Kg)": round(resumo["peso_3780_kg"], 2),
-          "Chapa 0,43x1200x4000 mm (Qtd)": resumo["total_ch_4000"],
-          "Peso CH 4000 (Kg)": round(resumo["peso_4000_kg"], 2),
-          "TOTAL GERAL DE CHAPAS (UN)": resumo["total_chapas_geral"],
-          "PESO TOTAL DE MATERIAL (KG)": round(resumo["peso_total_kg"], 2),
-      }])
-      df_resumo_export.to_excel(
-          writer, index=False, sheet_name="Resumo_Material_PCP"
-      )
-
-    excel_data = output.getvalue()
+    # GERADOR DE EXCEL FORMATADO PROFISSIONAL
+    excel_data = gerar_excel_formatado(df_resultado, resumo)
 
     st.download_button(
-        label="📥 Baixar Relatório Executivo de Chapas em Excel",
+        label="📥 Baixar Relatório Executivo Formatado em Excel",
         data=excel_data,
         file_name="Relatorio_PCP_Chapas_Cristal_VA.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
