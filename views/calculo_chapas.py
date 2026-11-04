@@ -30,29 +30,10 @@ def calcular_chapas_va(df_input):
 
     dim_raw = row.get("DIMENSÃO", row.get("Modelo Expositor (VA)", "0"))
     
-    # Normalização da dimensão para float e string limpa
     try:
       dim_float = float(str(dim_raw).replace(",", "."))
     except:
       dim_float = 0.0
-
-    dim_str = f"{dim_float:.2f}".replace(".", ".")
-    if dim_float in [1.25, 1.5, 1.87, 2.25, 2.5, 3.0, 3.75]:
-      # Padronizar formato visual da dimensão
-      if dim_float == 3.0:
-        dim_str = "3.0"
-      elif dim_float == 2.5:
-        dim_str = "2.5"
-      elif dim_float == 3.75:
-        dim_str = "3.75"
-      elif dim_float == 1.25:
-        dim_str = "1.25"
-      elif dim_float == 1.5:
-        dim_str = "1.5"
-      elif dim_float == 1.87:
-        dim_str = "1.87"
-      elif dim_float == 2.25:
-        dim_str = "2.25"
 
     qtd = int(row.get("Quantidade (Unid)", 1))
 
@@ -138,7 +119,8 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
       bottom=Side(style="thin", color=BORDER_GRAY),
   )
 
-  thick_bottom = Border(
+  # DEFINIÇÃO CORRETA DA BORDA GROSSA QUE CAUSAVA O ERRO
+  thick_border = Border(
       left=Side(style="thin", color=BORDER_GRAY),
       right=Side(style="thin", color=BORDER_GRAY),
       top=Side(style="thin", color=BORDER_GRAY),
