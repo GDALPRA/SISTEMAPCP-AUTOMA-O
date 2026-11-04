@@ -1,16 +1,41 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Portal de Automação Industrial | PCP",
-    page_icon="⚙️",
-    layout="wide"
+    page_title="Portal PCP & Engenharia",
+    page_icon="🏭",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# Definindo as páginas do portal no menu lateral
-pg = st.navigation([
-    st.Page("views/bandejas_pead.py", title="Bandejas ABS & PEAD", icon="📦"),
-    st.Page("views/calculo_tubos.py", title="Cálculo de Tubos", icon="🧪"),
-])
+# Definição das páginas do portal
+bandejas_page = st.Page(
+    "views/bandejas.py",
+    title="Bandejas ABS & PEAD",
+    icon="📦",
+    default=True,
+)
 
-# Executa a navegação selecionada
+tubos_page = st.Page(
+    "views/calculo_tubos.py",
+    title="Cálculo de Tubos (Chassis)",
+    icon="🧪",
+)
+
+portas_page = st.Page(
+    "views/calculo_portas.py",
+    title="Portas & Frames (Vertical Alto)",
+    icon="🚪",
+)
+
+# Configuração da Navegação Lateral
+pg = st.navigation(
+    {
+        "Módulos Operacionais PCP": [
+            bandejas_page,
+            tubos_page,
+            portas_page,
+        ]
+    }
+)
+
 pg.run()
