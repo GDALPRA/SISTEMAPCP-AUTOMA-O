@@ -95,6 +95,13 @@ chapas_page = st.Page(
     icon="📄",
 )
 
+# Módulo de Inox integrado corretamente na pasta views
+inox_page = st.Page(
+    "views/calculo_inox.py",
+    title="Chapas de Aço Inox (Expositores VA)",
+    icon="🛡️",
+)
+
 # --- NAVEGAÇÃO CORPORATIVA ---
 pg = st.navigation(
     {
@@ -103,6 +110,7 @@ pg = st.navigation(
             tubos_page,
             portas_page,
             chapas_page,
+            inox_page,
         ]
     }
 )
