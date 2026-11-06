@@ -7,10 +7,8 @@ from openpyxl.utils import get_column_letter
 import streamlit as st
 
 # --- CONSTANTES TÉCNICAS E PESOS (INOX 304) ---
-# Densidade do Aço Inoxidável (Inox 304): ~7.93 kg/(mm * m²)
 DENSIDADE_INOX = 7.93
 
-# Pesos Unitários Reais dos 4 Blanks Principais de Inox VA
 PESO_CH_053583 = 0.60 * 1.24 * 2.56 * DENSIDADE_INOX  # CH 0.60 x 1240 x 2560 (~15.10 kg)
 PESO_CH_104818 = 0.60 * 1.24 * 2.00 * DENSIDADE_INOX  # CH 0.60 x 1240 x 2000 (~11.80 kg)
 PESO_CH_153549 = 0.40 * 1.24 * 2.54 * DENSIDADE_INOX  # CH 0.40 x 1240 x 2540 (~9.99 kg)
@@ -18,10 +16,9 @@ PESO_CH_156082 = 0.40 * 1.24 * 3.78 * DENSIDADE_INOX  # CH 0.40 x 1240 x 3780 (~
 
 
 def calcular_inox_va(df_input):
-  """Aplica as regras completas de consumo de chapas de Aço Inox 304 para expositores VA."""
+  """Aplica as regras reais e completas de consumo de chapas de Aço Inox 304 para expositores VA."""
   detalhamento = []
 
-  # Contadores gerais de chapas
   total_ch_053583 = 0.0  # 0.60 x 1240 x 2560
   total_ch_104818 = 0.0  # 0.60 x 1240 x 2000
   total_ch_153549 = 0.0  # 0.40 x 1240 x 2540 (Bojos)
@@ -41,7 +38,6 @@ def calcular_inox_va(df_input):
 
     qtd = int(row.get("Quantidade (Unid)", 1))
 
-    # Variáveis locais por item
     ch_053583_item = 0.0
     ch_104818_item = 0.0
     ch_153549_item = 0.0
@@ -59,45 +55,53 @@ def calcular_inox_va(df_input):
       else:
         ch_156082_item = float(qtd)
 
-    # 2. CÁLCULO DE PAINÉIS DE FUNDO, TETOS INTERNOS E LATERAIS (Inox 0,60mm)
-    # A) EXPOSITORES COM PAINÉIS DE 1.25m (1.25m e 1.87m)
+    # 2. CÁLCULO DE PAINÉIS DE FUNDO, TETOS INTERNOS E LATERIAIS (Inox 0,60mm)
+    # A) Expositor 1.25m
     if dim_float == 1.25:
-      paineis_fundo = 3 * qtd
-      ch_053583_item += paineis_fundo / 4.0  # Painéis 1.25 (4 por chapa 2560)
-      ch_053583_item += qtd / 4.0            # Teto interno 1.25 (4 por chapa 2560)
+      paineis_fundo = (1 * 3) * qtd         # 3 painéis de fundo
+      ch_053583_item += paineis_fundo / 4.0 # 4 por chapa 2560
+      ch_053583_item += qtd / 4.0           # Teto interno (4 por chapa 2560)
 
-    elif dim_float == 1.87:
-      paineis_fundo = 3 * qtd
-      ch_053583_item += paineis_fundo / 4.0  # Painéis 1.25 (4 por chapa 2560)
-      paineis_610 = 3 * qtd
-      ch_104818_item += paineis_610 / 6.0    # Painéis 610 (6 por chapa 2000)
-      tetos_187 = 1 * qtd
-      ch_104818_item += tetos_187 / 2.0      # Teto interno 1.87 (2 por chapa 2000)
-
-    # B) EXPOSITORES COM PAINÉIS DE 0.75m (1.5m, 2.25m e 3.0m - 3 painéis por módulo de 0.75m, 6 por chapa 2560)
+    # B) Expositor 1.50m (2 módulos de 0.75m)
     elif dim_float == 1.5:
-      paineis_075 = (2 * 3) * qtd             # 2 módulos de 0.75m = 6 painéis
-      ch_053583_item += paineis_075 / 6.0     # 6 por chapa 2560 (1.0 chapa)
-      ch_053583_item += qtd / 2.0             # Teto interno 1.5 (2 por chapa 2560)
+      paineis_075 = (2 * 3) * qtd           # 6 painéis de 0.75m
+      ch_053583_item += paineis_075 / 6.0   # 6 por chapa 2560
+      ch_053583_item += qtd / 2.0           # Teto interno 1.5 (2 por chapa 2560)
 
+    # C) Expositor 1.87m
+    elif dim_float == 1.87:
+      paineis_fundo = (1.87 / 1.25 * 3) * qtd # Aproximadamente 3 painéis de 1.25 base
+      ch_053583_item += (3 * qtd) / 4.0
+      paineis_610 = 3 * qtd
+      ch_104818_item += paineis_610 / 6.0    # 6 por chapa 2000
+      tetos_187 = 1 * qtd
+      ch_104818_item += tetos_187 / 2.0      # 2 por chapa 2000
+
+    # D) Expositor 2.25m (3 módulos de 0.75m)
     elif dim_float == 2.25:
-      paineis_075 = (3 * 3) * qtd             # 3 módulos de 0.75m = 9 painéis
-      ch_053583_item += paineis_075 / 6.0     # 6 por chapa 2560 (1.5 chapas)
-      ch_053583_item += qtd / 2.0             # Teto interno 2.25 (2 por chapa 2560)
+      paineis_075 = (3 * 3) * qtd           # 9 painéis de 0.75m
+      ch_053583_item += paineis_075 / 6.0   # 6 por chapa 2560
+      ch_053583_item += qtd / 2.0           # Teto interno 2.25 (2 por chapa 2560)
 
-    elif dim_float == 3.0:
-      paineis_075 = (4 * 3) * qtd             # 4 módulos de 0.75m = 12 painéis
-      ch_053583_item += paineis_075 / 6.0     # 6 por chapa 2560 (2.0 chapas)
-      tetos_15_para_3m = 2 * qtd
-      ch_053583_item += tetos_15_para_3m / 2.0 # Usa 2 tetos de 1.5 (2 por chapa 2560)
-
-    # C) OUTROS MODELOS DE TETOS INTERNOS
+    # E) Expositor 2.50m (2 módulos de 1.25m)
     elif dim_float == 2.5:
-      ch_053583_item += qtd / 2.0             # Teto interno 2.5 (2 por chapa 2560)
+      paineis_fundo = (2 * 3) * qtd         # 6 painéis de fundo de 1.25m
+      ch_053583_item += paineis_fundo / 4.0 # 4 por chapa 2560 (1.5 chapas)
+      ch_053583_item += qtd / 2.0           # Teto interno 2.5 (2 por chapa 2560)
 
+    # F) Expositor 3.00m (4 módulos de 0.75m)
+    elif dim_float == 3.0:
+      paineis_075 = (4 * 3) * qtd           # 12 painéis de 0.75m
+      ch_053583_item += paineis_075 / 6.0   # 6 por chapa 2560 (2 chapas)
+      tetos_15_para_3m = 2 * qtd
+      ch_053583_item += tetos_15_para_3m / 2.0 # Usa tetos de 1.5 (2 por chapa 2560)
+
+    # G) Expositor 3.75m (3 módulos de 1.25m)
     elif dim_float == 3.75:
+      paineis_fundo = (3 * 3) * qtd         # 9 painéis de fundo de 1.25m
+      ch_053583_item += paineis_fundo / 4.0 # 4 por chapa 2560 (2.25 chapas)
       tetos_375 = 2 * qtd
-      ch_104818_item += tetos_375 / 2.0       # 2 tetos de 1.87 (2 por chapa 2000)
+      ch_104818_item += tetos_375 / 2.0     # 2 tetos de 1.87 (2 por chapa 2000)
 
     total_ch_053583 += ch_053583_item
     total_ch_104818 += ch_104818_item
@@ -148,7 +152,6 @@ def calcular_inox_va(df_input):
 
 
 def gerar_excel_estilo_tubos(df_detalhe, resumo):
-  """Gera o relatório em Excel seguindo exatamente o padrão visual corporativo."""
   wb = openpyxl.Workbook()
   ws = wb.active
   ws.title = "Relatório Inox"
@@ -185,11 +188,9 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
       bottom=Side(style="medium", color=NAVY),
   )
 
-  # Cabeçalho
   ws.cell(row=1, column=1, value="RELATÓRIO EXECUTIVO - PRODUÇÃO DE CHAPAS DE AÇO INOX (EXPOSITORES VA)").font = font_title
   ws.cell(row=2, column=1, value="PCP & Engenharia - Visão Estratégica para Diretoria e Compras").font = font_subtitle
 
-  # Bloco de KPIs
   ws.cell(row=4, column=1, value="INDICADORES GERAIS DE INOX 304").font = font_section
   
   kpi_headers = ["TOTAL DE CHAPAS (UN)", "CH 2560 (0.6mm)", "CH 2000 (0.6mm)", "CH 2540 (0.4mm)", "CH 3780 (0.4mm)", "PESO TOTAL (kg)"]
@@ -216,7 +217,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
     cell.alignment = Alignment(horizontal="center", vertical="center")
     cell.border = thin_border
 
-  # Seção 1: Resumo por Tipo de Chapa
   ws.cell(row=9, column=1, value="1. RESUMO DE CONSUMO POR BLANK DE INOX").font = font_section
   
   resumo_headers = ["CÓDIGO", "DESCRIÇÃO DO BLANK DE INOX", "QUANTIDADE TOTAL (UN)", "PESO TOTAL (kg)"]
@@ -244,7 +244,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
       else:
         cell.alignment = Alignment(horizontal="left", vertical="center")
 
-  # Seção 2: Demanda Detalhada por Cliente
   start_row = 17
   ws.cell(row=start_row - 1, column=1, value="2. DEMANDA DETALHADA DE INOX POR CLIENTE E EXPOSITOR").font = font_section
 
@@ -271,7 +270,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
         cell.fill = fill_zebra
     current_row += 1
 
-  # Linha de Total Geral
   for c_idx in range(1, len(detalhe_headers) + 1):
     cell = ws.cell(row=current_row, column=c_idx)
     cell.border = thick_border
@@ -295,7 +293,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
   return output.getvalue()
 
 
-# --- INTERFACE EXECUTIVA STREAMLIT ---
 st.title("🛡️ Módulo de Chapas de Aço Inox - Expositores VA")
 st.markdown("Cálculo automatizado de blanks de Inox 304 (0,40mm, 0,60mm e 0,80mm) baseado na Planilha de Montagem Oficial.")
 
@@ -311,7 +308,6 @@ if uploaded_file:
   if st.button("🚀 Processar Cálculo de Aço Inox", type="primary"):
     df_resultado, resumo = calcular_inox_va(df_pedidos)
 
-    # Métricas Executivas
     st.markdown("---")
     st.subheader("📊 Indicadores Totais de Inox Necessários")
 
