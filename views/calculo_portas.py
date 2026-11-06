@@ -9,7 +9,7 @@ import streamlit as st
 st.markdown(
     """
     <div style="background-color: #1F497D; color: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h2 style="margin: 0; font-weight: 700;">🚪 CÁLCULO DE PORTAS E FRAMES (VA & VAP)</h2>
+        <h2 style="margin: 0; font-weight: 700;">🚪 CÁLCULO DE PORTAS, FRAMES & EXPOSITORES ABERTOS</h2>
         <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Painel de Engenharia & PCP - Relatório Gerencial Executivo</p>
     </div>
 """,
@@ -35,10 +35,10 @@ CODIGOS_PORTAS_VA = {
     ("CINZA", "TRANSPARENTE", "ESQ"): "153833",
 }
 
-# TABELA OFICIAL DE CÓDIGOS DE PORTAS VAP (Congelados - Apenas Direitas)[cite: 3]
+# TABELA OFICIAL DE CÓDIGOS DE PORTAS VAP (Congelados - Apenas Direitas)
 CODIGOS_PORTAS_VAP = {
-    "CINZA": "154222",  # PORTA CONG DIR 730X1714 CINZA[cite: 3]
-    "PRETA": "154221",  # PORTA CONG DIR 730X1714 PRETA[cite: 3]
+    "CINZA": "154222",  # PORTA CONG DIR 730X1714 CINZA
+    "PRETA": "154221",  # PORTA CONG DIR 730X1714 PRETA
 }
 
 # TABELA OFICIAL DE CÓDIGOS DE FRAMES / QUADROS VA
@@ -53,16 +53,16 @@ CODIGOS_FRAMES_VA = {
     ("PRETA", 3750): "153827",
 }
 
-# TABELA OFICIAL DE CÓDIGOS DE QUADROS VAP (Congelados)[cite: 3]
+# TABELA OFICIAL DE CÓDIGOS DE QUADROS VAP (Congelados)
 CODIGOS_QUADROS_VAP = {
-    ("CINZA", 1500): "154220",  # QUADRO 2P CONG 1500X1735 CINZA[cite: 3]
-    ("CINZA", 2250): "154219",  # QUADRO 3P CONG 2250X1735 CINZA[cite: 3]
-    ("CINZA", 3000): "154218",  # QUADRO 4P CONG 3000X1735 CINZA[cite: 3]
-    ("CINZA", 3750): "154217",  # QUADRO 5P CONG 3750X1735 CINZA[cite: 3]
-    ("PRETA", 1500): "154216",  # QUADRO 2P CONG 1500X1735 PRETO[cite: 3]
-    ("PRETA", 2250): "154215",  # QUADRO 3P CONG 2250X1735 PRETO[cite: 3]
-    ("PRETA", 3000): "154214",  # QUADRO 4P CONG 3000X1735 PRETO[cite: 3]
-    ("PRETA", 3750): "154213",  # QUADRO 5P CONG 3750X1735 PRETO[cite: 3]
+    ("CINZA", 1500): "154220",  # QUADRO 2P CONG 1500X1735 CINZA
+    ("CINZA", 2250): "154219",  # QUADRO 3P CONG 2250X1735 CINZA
+    ("CINZA", 3000): "154218",  # QUADRO 4P CONG 3000X1735 CINZA
+    ("CINZA", 3750): "154217",  # QUADRO 5P CONG 3750X1735 CINZA
+    ("PRETA", 1500): "154216",  # QUADRO 2P CONG 1500X1735 PRETO
+    ("PRETA", 2250): "154215",  # QUADRO 3P CONG 2250X1735 PRETO
+    ("PRETA", 3000): "154214",  # QUADRO 4P CONG 3000X1735 PRETO
+    ("PRETA", 3750): "154213",  # QUADRO 5P CONG 3750X1735 PRETO
 }
 
 
@@ -115,26 +115,13 @@ if uploaded_file is not None:
     lista_detalhada = []
     lista_resumo_portas = []
     lista_resumo_frames = []
+    lista_abertos = []
 
     for _, row in df_filtrado.iterrows():
       cliente = str(row.get("NAME", row.get("CLIENTE", "N/A"))).strip()
       orfa = str(row.get("ORFA", row.get("ORFA / OP", "N/A"))).strip()
       alinhamento = str(row.get("ALINHAMENTO", "N/A")).strip()
       alinh_upper = alinhamento.upper()
-
-      # REGRA CRUCIAL: Expositores abertos sem 'P' (como VAH, VAL, VAC, VAB) não usam porta.
-      # Usam porta apenas se contiver 'P' na sigla (ex: VAP, VALP, VAHP, VACP, VABP) ou 'PVT'.
-      usa_porta = ("P" in alinh_upper) or ("PVT" in alinh_upper)
-      if not usa_porta:
-        continue  # Pula os modelos abertos (VAH, VAL, etc.)
-
-      serigrafia = str(row.get("SERIGRAFIA", "PRETA")).strip().upper()
-      if "CINZA" in alinh_upper:
-        serigrafia = "CINZA"
-      elif "PRETO" in alinh_upper or "PRETA" in alinh_upper:
-        serigrafia = "PRETA"
-
-      qtd_exp = int(row.get("QTD", row.get("QUANTIDADE", 1)))
 
       try:
         dim_val = float(
@@ -144,6 +131,28 @@ if uploaded_file is not None:
         )
       except:
         dim_val = 1.25
+
+      qtd_exp = int(row.get("QTD", row.get("QUANTIDADE", 1)))
+
+      # REGRA DE EXPOSITORES ABERTOS (Sem 'P' e sem 'PVT') -> VAH, VAL, etc.
+      usa_porta = ("P" in alinh_upper) or ("PVT" in alinh_upper)
+      if not usa_porta:
+        lista_abertos.append({
+            "CLIENTE": cliente,
+            "ORFA / OP": orfa,
+            "ALINHAMENTO": alinhamento,
+            "TIPO": "EXPOSITOR ABERTO (S/ PORTA)",
+            "DIMENSÃO (m)": dim_val,
+            "QTD EXP": qtd_exp,
+            "OBSERVAÇÃO": "Requer programação manual de vidros",
+        })
+        continue
+
+      serigrafia = str(row.get("SERIGRAFIA", "PRETA")).strip().upper()
+      if "CINZA" in alinh_upper:
+        serigrafia = "CINZA"
+      elif "PRETO" in alinh_upper or "PRETA" in alinh_upper:
+        serigrafia = "PRETA"
 
       dim_mm = converter_dimensao_para_mm(dim_val)
       is_vap = "VAP" in alinh_upper
@@ -249,238 +258,276 @@ if uploaded_file is not None:
             "QTD FRAMES": qtd_frames,
         })
 
-    if not lista_detalhada:
+    df_itens = pd.DataFrame(lista_detalhada) if lista_detalhada else pd.DataFrame()
+    df_abertos = pd.DataFrame(lista_abertos) if lista_abertos else pd.DataFrame()
+    df_portas_resumo = (
+        pd.DataFrame(lista_resumo_portas)
+        .groupby(["CÓDIGO", "MODELO DE PORTA"], as_index=False)
+        .agg({"QTD PORTAS (UN)": "sum"})
+        .sort_values(by="CÓDIGO")
+        if lista_resumo_portas
+        else pd.DataFrame()
+    )
+    df_frames_resumo = (
+        pd.DataFrame(lista_resumo_frames)
+        .groupby(["CÓDIGO", "MODELO DE FRAME"], as_index=False)
+        .agg({"QTD FRAMES (UN)": "sum"})
+        .sort_values(by="CÓDIGO")
+        if lista_resumo_frames
+        else pd.DataFrame()
+    )
+
+    total_expositores = df_itens["QTD EXP"].sum() if not df_itens.empty else 0
+    total_portas_geral = df_itens["TOTAL PORTAS"].sum() if not df_itens.empty else 0
+    total_frames_geral = df_itens["QTD FRAMES"].sum() if not df_itens.empty else 0
+    total_abertos = df_abertos["QTD EXP"].sum() if not df_abertos.empty else 0
+
+    # --- PAINEL VISUAL NA TELA ---
+    st.write("---")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("EXPOSITORES C/ PORTA", total_expositores)
+    col2.metric("TOTAL DE PORTAS (UN)", total_portas_geral)
+    col3.metric("TOTAL DE FRAMES", total_frames_geral)
+    col4.metric("EXPOSITORES ABERTOS", total_abertos, delta="Atenção Vidros")
+
+    if not df_abertos.empty:
       st.warning(
-          "Nenhum expositor com porta (série P ou PVT) foi encontrado nos"
-          " dados."
-      )
-    else:
-      df_itens = pd.DataFrame(lista_detalhada)
-      df_portas_temp = pd.DataFrame(lista_resumo_portas)
-      df_frames_temp = pd.DataFrame(lista_resumo_frames)
-
-      df_portas_resumo = (
-          df_portas_temp.groupby(["CÓDIGO", "MODELO DE PORTA"], as_index=False)
-          .agg({"QTD PORTAS (UN)": "sum"})
-          .sort_values(by="CÓDIGO")
+          f"⚠️ Atenção: Foram encontrados **{total_abertos} expositor(es) aberto(s)**"
+          " (sem fechamento de porta). Eles foram listados na seção exclusiva"
+          " abaixo para conferência e programação manual de vidros."
       )
 
-      df_frames_resumo = (
-          df_frames_temp.groupby(["CÓDIGO", "MODELO DE FRAME"], as_index=False)
-          .agg({"QTD FRAMES (UN)": "sum"})
-          .sort_values(by="CÓDIGO")
-      )
-
-      total_expositores = df_itens["QTD EXP"].sum()
-      total_portas_geral = df_itens["TOTAL PORTAS"].sum()
-      total_frames_geral = df_itens["QTD FRAMES"].sum()
-
-      # --- PAINEL VISUAL NA TELA ---
-      st.write("---")
-      col1, col2, col3 = st.columns(3)
-      col1.metric("EXPOSITORES COM PORTA", total_expositores)
-      col2.metric("TOTAL DE PORTAS (UN)", total_portas_geral)
-      col3.metric("TOTAL DE FRAMES / QUADROS", total_frames_geral)
-
-      st.write("")
-      st.write("### 1. Resumo Consolidado de Portas (VA & VAP)")
+    st.write("")
+    st.write("### 1. Resumo Consolidado de Portas (VA & VAP)")
+    if not df_portas_resumo.empty:
       st.dataframe(df_portas_resumo, use_container_width=True, hide_index=True)
+    else:
+      st.info("Nenhuma porta computada.")
 
-      st.write("### 2. Resumo Consolidado de Frames e Quadros Congelados")
+    st.write("### 2. Resumo Consolidado de Frames e Quadros Congelados")
+    if not df_frames_resumo.empty:
       st.dataframe(df_frames_resumo, use_container_width=True, hide_index=True)
+    else:
+      st.info("Nenhum frame computado.")
 
-      st.write("### 3. Demanda Detalhada por Cliente e Alinhamento")
+    st.write("### 3. Demanda Detalhada por Cliente e Alinhamento")
+    if not df_itens.empty:
       st.dataframe(df_itens, use_container_width=True, hide_index=True)
+    else:
+      st.info("Nenhum item com porta detalhado.")
 
-      # --- FUNÇÃO DE GERAÇÃO DO EXCEL EXECUTIVO ---
-      def gerar_excel_portas(
-          tot_exp, tot_portas, tot_frames, df_portas, df_frames, df_detalhado
-      ):
-        output_bytes = io.BytesIO()
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Relatório Portas & Frames"
-        ws.views.sheetView[0].showGridLines = True
+    st.write(
+        "### 4. 🪟 Área de Atenção: Expositores Abertos (Programação Manual de"
+        " Vidros)"
+    )
+    if not df_abertos.empty:
+      st.dataframe(df_abertos, use_container_width=True, hide_index=True)
+    else:
+      st.success("Nenhum expositor aberto encontrado na planilha atual.")
 
-        cor_header = "1F497D"
-        cor_zebrado = "F8F9FA"
+    # --- FUNÇÃO DE GERAÇÃO DO EXCEL EXECUTIVO ---
+    def gerar_excel_portas(
+        tot_exp,
+        tot_portas,
+        tot_frames,
+        df_portas,
+        df_frames,
+        df_detalhado,
+        df_abertos_rel,
+    ):
+      output_bytes = io.BytesIO()
+      wb = openpyxl.Workbook()
+      ws = wb.active
+      ws.title = "Relatório Portas & Frames"
+      ws.views.sheetView[0].showGridLines = True
 
-        font_main_title = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
-        font_subtitle = Font(name="Calibri", size=10, italic=True, color="FFFFFF")
-        font_kpi_title = Font(
-            name="Calibri", size=9, bold=True, color="555555"
+      cor_header = "1F497D"
+      cor_zebrado = "F8F9FA"
+
+      font_main_title = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+      font_subtitle = Font(name="Calibri", size=10, italic=True, color="FFFFFF")
+      font_kpi_title = Font(
+          name="Calibri", size=9, bold=True, color="555555"
+      )
+      font_kpi_val = Font(name="Calibri", size=14, bold=True, color="1F497D")
+      font_section = Font(name="Calibri", size=11, bold=True, color="1F497D")
+      font_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+      font_body = Font(name="Calibri", size=10)
+      font_total = Font(name="Calibri", size=10, bold=True)
+
+      border_thin = Border(
+          left=Side(style="thin", color="D9D9D9"),
+          right=Side(style="thin", color="D9D9D9"),
+          top=Side(style="thin", color="D9D9D9"),
+          bottom=Side(style="thin", color="D9D9D9"),
+      )
+      fill_header = PatternFill(
+          start_color=cor_header, end_color=cor_header, fill_type="solid"
+      )
+
+      ws.merge_cells("A1:M1")
+      ws.merge_cells("A2:M2")
+
+      c1 = ws["A1"]
+      c1.value = (
+          "RELATÓRIO EXECUTIVO - CÁLCULO DE PORTAS, FRAMES & EXPOSITORES"
+          " ABERTOS"
+      )
+      c1.font = font_main_title
+      c1.fill = fill_header
+      c1.alignment = Alignment(horizontal="center", vertical="center")
+
+      c2 = ws["A2"]
+      c2.value = (
+          "Mapeamento Oficial | PCP & Diretoria"
+      )
+      c2.font = font_subtitle
+      c2.fill = fill_header
+      c2.alignment = Alignment(horizontal="center", vertical="center")
+
+      ws.row_dimensions[1].height = 25
+      ws.row_dimensions[2].height = 18
+
+      kpis = [
+          ("EXPOSITORES C/ PORTA", tot_exp, "#,##0", "A", "C"),
+          ("TOTAL PORTAS (UN)", tot_portas, "#,##0", "D", "G"),
+          ("TOTAL FRAMES / QUADROS", tot_frames, "#,##0", "H", "M"),
+      ]
+
+      for titulo, valor, formato, col_ini, col_fim in kpis:
+        ws.merge_cells(f"{col_ini}4:{col_fim}4")
+        ws.merge_cells(f"{col_ini}5:{col_fim}5")
+
+        ct = ws[f"{col_ini}4"]
+        ct.value = titulo
+        ct.font = font_kpi_title
+        ct.alignment = Alignment(horizontal="center", vertical="center")
+
+        cv = ws[f"{col_ini}5"]
+        cv.value = valor
+        cv.font = font_kpi_val
+        cv.number_format = formato
+        cv.alignment = Alignment(horizontal="center", vertical="center")
+
+      ws.row_dimensions[4].height = 16
+      ws.row_dimensions[5].height = 24
+
+      current_row = 7
+      blocos = [
+          (
+              "1. RESUMO CONSOLIDADO DE PORTAS POR CÓDIGO E MODELO",
+              df_portas,
+          ),
+          ("2. RESUMO CONSOLIDADO DE FRAMES E QUADROS POR CÓDIGO", df_frames),
+          ("3. DEMANDA DETALHADA POR CLIENTE E ALINHAMENTO", df_detalhado),
+          (
+              "4. EXPOSITORES ABERTOS (ATENÇÃO: PROGRAMAÇÃO MANUAL DE VIDROS)",
+              df_abertos_rel,
+          ),
+      ]
+
+      for titulo_secao, df_data in blocos:
+        if df_data.empty:
+          continue
+        ws.cell(row=current_row, column=1, value=titulo_secao).font = (
+            font_section
         )
-        font_kpi_val = Font(name="Calibri", size=14, bold=True, color="1F497D")
-        font_section = Font(name="Calibri", size=11, bold=True, color="1F497D")
-        font_header = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
-        font_body = Font(name="Calibri", size=10)
-        font_total = Font(name="Calibri", size=10, bold=True)
+        ws.row_dimensions[current_row].height = 22
+        current_row += 1
 
-        border_thin = Border(
-            left=Side(style="thin", color="D9D9D9"),
-            right=Side(style="thin", color="D9D9D9"),
-            top=Side(style="thin", color="D9D9D9"),
-            bottom=Side(style="thin", color="D9D9D9"),
-        )
-        fill_header = PatternFill(
-            start_color=cor_header, end_color=cor_header, fill_type="solid"
-        )
-
-        ws.merge_cells("A1:M1")
-        ws.merge_cells("A2:M2")
-
-        c1 = ws["A1"]
-        c1.value = (
-            "RELATÓRIO EXECUTIVO - CÁLCULO DE PORTAS E FRAMES (VA & VAP)"
-        )
-        c1.font = font_main_title
-        c1.fill = fill_header
-        c1.alignment = Alignment(horizontal="center", vertical="center")
-
-        c2 = ws["A2"]
-        c2.value = (
-            "Mapeamento Oficial por Código de Produto | PCP & Diretoria"
-        )
-        c2.font = font_subtitle
-        c2.fill = fill_header
-        c2.alignment = Alignment(horizontal="center", vertical="center")
-
-        ws.row_dimensions[1].height = 25
-        ws.row_dimensions[2].height = 18
-
-        kpis = [
-            ("EXPOSITORES C/ PORTA", tot_exp, "#,##0", "A", "C"),
-            ("TOTAL PORTAS (UN)", tot_portas, "#,##0", "D", "G"),
-            ("TOTAL FRAMES / QUADROS", tot_frames, "#,##0", "H", "M"),
-        ]
-
-        for titulo, valor, formato, col_ini, col_fim in kpis:
-          ws.merge_cells(f"{col_ini}4:{col_fim}4")
-          ws.merge_cells(f"{col_ini}5:{col_fim}5")
-
-          ct = ws[f"{col_ini}4"]
-          ct.value = titulo
-          ct.font = font_kpi_title
-          ct.alignment = Alignment(horizontal="center", vertical="center")
-
-          cv = ws[f"{col_ini}5"]
-          cv.value = valor
-          cv.font = font_kpi_val
-          cv.number_format = formato
-          cv.alignment = Alignment(horizontal="center", vertical="center")
-
-        ws.row_dimensions[4].height = 16
-        ws.row_dimensions[5].height = 24
-
-        current_row = 7
-        blocos = [
-            (
-                "1. RESUMO CONSOLIDADO DE PORTAS POR CÓDIGO E MODELO",
-                df_portas,
-            ),
-            ("2. RESUMO CONSOLIDADO DE FRAMES E QUADROS POR CÓDIGO", df_frames),
-            ("3. DEMANDA DETALHADA POR CLIENTE E ALINHAMENTO", df_detalhado),
-        ]
-
-        for titulo_secao, df_data in blocos:
-          ws.cell(row=current_row, column=1, value=titulo_secao).font = (
-              font_section
+        for col_idx, col_name in enumerate(df_data.columns, 1):
+          c = ws.cell(row=current_row, column=col_idx, value=col_name)
+          c.font = font_header
+          c.fill = fill_header
+          c.alignment = Alignment(
+              horizontal="center", vertical="center", wrap_text=True
           )
-          ws.row_dimensions[current_row].height = 22
-          current_row += 1
+          c.border = border_thin
+        ws.row_dimensions[current_row].height = 22
+        start_data_row = current_row + 1
+        current_row += 1
 
-          for col_idx, col_name in enumerate(df_data.columns, 1):
-            c = ws.cell(row=current_row, column=col_idx, value=col_name)
-            c.font = font_header
-            c.fill = fill_header
-            c.alignment = Alignment(
-                horizontal="center", vertical="center", wrap_text=True
-            )
+        for row_values in df_data.values:
+          ws.row_dimensions[current_row].height = 18
+          is_even = current_row % 2 == 0
+
+          for col_idx, val in enumerate(row_values, 1):
+            c = ws.cell(row=current_row, column=col_idx, value=val)
+            c.font = font_body
             c.border = border_thin
-          ws.row_dimensions[current_row].height = 22
-          start_data_row = current_row + 1
+
+            if is_even:
+              c.fill = PatternFill(
+                  start_color=cor_zebrado,
+                  end_color=cor_zebrado,
+                  fill_type="solid",
+              )
+
+            if isinstance(val, float):
+              c.number_format = "#,##0.00"
+              c.alignment = Alignment(horizontal="right", vertical="center")
+            elif isinstance(val, int):
+              c.number_format = "#,##0"
+              c.alignment = Alignment(horizontal="right", vertical="center")
+            else:
+              c.alignment = Alignment(horizontal="left", vertical="center")
           current_row += 1
 
-          for row_values in df_data.values:
-            ws.row_dimensions[current_row].height = 18
-            is_even = current_row % 2 == 0
+        end_data_row = current_row - 1
 
-            for col_idx, val in enumerate(row_values, 1):
-              c = ws.cell(row=current_row, column=col_idx, value=val)
-              c.font = font_body
-              c.border = border_thin
+        ws.row_dimensions[current_row].height = 20
+        c_tot_lbl = ws.cell(row=current_row, column=1, value="TOTAL GERAL")
+        c_tot_lbl.font = font_total
+        c_tot_lbl.border = border_thin
+        c_tot_lbl.alignment = Alignment(horizontal="left", vertical="center")
 
-              if is_even:
-                c.fill = PatternFill(
-                    start_color=cor_zebrado,
-                    end_color=cor_zebrado,
-                    fill_type="solid",
-                )
+        for col_idx, col_name in enumerate(df_data.columns, 1):
+          if col_idx > 1:
+            c_tot = ws.cell(row=current_row, column=col_idx)
+            c_tot.font = font_total
+            c_tot.border = border_thin
+            col_letter = get_column_letter(col_idx)
 
-              if isinstance(val, float):
-                c.number_format = "#,##0.00"
-                c.alignment = Alignment(horizontal="right", vertical="center")
-              elif isinstance(val, int):
-                c.number_format = "#,##0"
-                c.alignment = Alignment(horizontal="right", vertical="center")
+            if df_data[col_name].dtype in ["int64", "float64"]:
+              c_tot.value = f"=SUM({col_letter}{start_data_row}:{col_letter}{end_data_row})"
+              c_tot.alignment = Alignment(
+                  horizontal="right", vertical="center"
+              )
+              if df_data[col_name].dtype == "float64":
+                c_tot.number_format = "#,##0.00"
               else:
-                c.alignment = Alignment(horizontal="left", vertical="center")
-            current_row += 1
+                c_tot.number_format = "#,##0"
 
-          end_data_row = current_row - 1
+        current_row += 3
 
-          ws.row_dimensions[current_row].height = 20
-          c_tot_lbl = ws.cell(row=current_row, column=1, value="TOTAL GERAL")
-          c_tot_lbl.font = font_total
-          c_tot_lbl.border = border_thin
-          c_tot_lbl.alignment = Alignment(horizontal="left", vertical="center")
+      for col in ws.columns:
+        max_len = 0
+        col_letter = get_column_letter(col[0].column)
+        for cell in col:
+          v_str = str(cell.value or "")
+          if len(v_str) > max_len:
+            max_len = len(v_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
 
-          for col_idx, col_name in enumerate(df_data.columns, 1):
-            if col_idx > 1:
-              c_tot = ws.cell(row=current_row, column=col_idx)
-              c_tot.font = font_total
-              c_tot.border = border_thin
-              col_letter = get_column_letter(col_idx)
+      wb.save(output_bytes)
+      output_bytes.seek(0)
+      return output_bytes.getvalue()
 
-              if df_data[col_name].dtype in ["int64", "float64"]:
-                c_tot.value = f"=SUM({col_letter}{start_data_row}:{col_letter}{end_data_row})"
-                c_tot.alignment = Alignment(
-                    horizontal="right", vertical="center"
-                )
-                if df_data[col_name].dtype == "float64":
-                  c_tot.number_format = "#,##0.00"
-                else:
-                  c_tot.number_format = "#,##0"
+    excel_portas = gerar_excel_portas(
+        total_expositores,
+        total_portas_geral,
+        total_frames_geral,
+        df_portas_resumo,
+        df_frames_resumo,
+        df_itens,
+        df_abertos,
+    )
 
-          current_row += 3
-
-        for col in ws.columns:
-          max_len = 0
-          col_letter = get_column_letter(col[0].column)
-          for cell in col:
-            v_str = str(cell.value or "")
-            if len(v_str) > max_len:
-              max_len = len(v_str)
-          ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
-
-        wb.save(output_bytes)
-        output_bytes.seek(0)
-        return output_bytes.getvalue()
-
-      excel_portas = gerar_excel_portas(
-          total_expositores,
-          total_portas_geral,
-          total_frames_geral,
-          df_portas_resumo,
-          df_frames_resumo,
-          df_itens,
-      )
-
-      st.write("")
-      st.download_button(
-          label="📥 Descarregar Relatório Executivo de Portas & Frames (.xlsx)",
-          data=excel_portas,
-          file_name="Relatorio_Executivo_Portas_Frames_VA_VAP.xlsx",
-          mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          use_container_width=True,
-      )
+    st.write("")
+    st.download_button(
+        label="📥 Descarregar Relatório Executivo de Portas & Frames (.xlsx)",
+        data=excel_portas,
+        file_name="Relatorio_Executivo_Portas_Frames_VA_VAP.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
