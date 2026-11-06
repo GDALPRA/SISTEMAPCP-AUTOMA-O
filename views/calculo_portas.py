@@ -9,7 +9,7 @@ import streamlit as st
 st.markdown(
     """
     <div style="background-color: #1F497D; color: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h2 style="margin: 0; font-weight: 700;">🚪 CÁLCULO DE PORTAS E FRAMES (VERTICAL ALTO)</h2>
+        <h2 style="margin: 0; font-weight: 700;">🚪 CÁLCULO DE PORTAS E FRAMES (VA & VAP)</h2>
         <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Painel de Engenharia & PCP - Relatório Gerencial Executivo</p>
     </div>
 """,
@@ -23,8 +23,8 @@ uploaded_file = st.file_uploader(
     type=["xlsx", "xls", "csv"],
 )
 
-# TABELA OFICIAL DE CÓDIGOS DE PORTAS
-CODIGOS_PORTAS = {
+# TABELA OFICIAL DE CÓDIGOS DE PORTAS VA (Standard)
+CODIGOS_PORTAS_VA = {
     ("PRETA", "SERIGRAFADA", "DIR"): "153828",
     ("PRETA", "SERIGRAFADA", "ESQ"): "153829",
     ("PRETA", "TRANSPARENTE", "DIR"): "153830",
@@ -35,8 +35,14 @@ CODIGOS_PORTAS = {
     ("CINZA", "TRANSPARENTE", "ESQ"): "153833",
 }
 
-# TABELA OFICIAL DE CÓDIGOS DE FRAMES (por cor e dimensão em mm)
-CODIGOS_FRAMES = {
+# TABELA OFICIAL DE CÓDIGOS DE PORTAS VAP (Congelados - Apenas Direitas)[cite: 3]
+CODIGOS_PORTAS_VAP = {
+    "CINZA": "154222",  # PORTA CONG DIR 730X1714 CINZA[cite: 3]
+    "PRETA": "154221",  # PORTA CONG DIR 730X1714 PRETA[cite: 3]
+}
+
+# TABELA OFICIAL DE CÓDIGOS DE FRAMES / QUADROS VA
+CODIGOS_FRAMES_VA = {
     ("CINZA", 1250): "154183",
     ("CINZA", 1875): "154678",
     ("CINZA", 2500): "154157",
@@ -45,6 +51,18 @@ CODIGOS_FRAMES = {
     ("PRETA", 1875): "162726",
     ("PRETA", 2500): "153826",
     ("PRETA", 3750): "153827",
+}
+
+# TABELA OFICIAL DE CÓDIGOS DE QUADROS VAP (Congelados)[cite: 3]
+CODIGOS_QUADROS_VAP = {
+    ("CINZA", 1500): "154220",  # QUADRO 2P CONG 1500X1735 CINZA[cite: 3]
+    ("CINZA", 2250): "154219",  # QUADRO 3P CONG 2250X1735 CINZA[cite: 3]
+    ("CINZA", 3000): "154218",  # QUADRO 4P CONG 3000X1735 CINZA[cite: 3]
+    ("CINZA", 3750): "154217",  # QUADRO 5P CONG 3750X1735 CINZA[cite: 3]
+    ("PRETA", 1500): "154216",  # QUADRO 2P CONG 1500X1735 PRETO[cite: 3]
+    ("PRETA", 2250): "154215",  # QUADRO 3P CONG 2250X1735 PRETO[cite: 3]
+    ("PRETA", 3000): "154214",  # QUADRO 4P CONG 3000X1735 PRETO[cite: 3]
+    ("PRETA", 3750): "154213",  # QUADRO 5P CONG 3750X1735 PRETO[cite: 3]
 }
 
 
@@ -62,7 +80,7 @@ def converter_dimensao_para_mm(valor_dim):
   else:
     mm = round(val)
 
-  chaves_validas = [1250, 1875, 2500, 3750]
+  chaves_validas = [1250, 1500, 1875, 2250, 2500, 3000, 3750]
   return min(chaves_validas, key=lambda x: abs(x - mm))
 
 
@@ -77,28 +95,37 @@ if uploaded_file is not None:
 
   df.columns = [str(col).strip().upper() for col in df.columns]
 
-  # Filtrar apenas a linha VERTICAL ALTO
-  if "LINHA" in df.columns:
-    df_va = df[
-        df["LINHA"].astype(str).str.upper().str.contains("VERTICAL ALTO|VA")
+  # Filtrar linhas VA ou VAP
+  if "LINHA" in df.columns or "ALINHAMENTO" in df.columns:
+    df_filtrado = df[
+        df.apply(
+            lambda r: any(
+                k in str(r.get("LINHA", "")) or k in str(r.get("ALINHAMENTO", ""))
+                for k in ["VA", "VAP"]
+            ),
+            axis=1,
+        )
     ].copy()
   else:
-    df_va = df.copy()
+    df_filtrado = df.copy()
 
-  if df_va.empty:
-    st.warning(
-        "Nenhum expositor da linha 'VERTICAL ALTO' foi encontrado na planilha."
-    )
+  if df_filtrado.empty:
+    st.warning("Nenhum expositor VA ou VAP foi encontrado na planilha.")
   else:
     lista_detalhada = []
     lista_resumo_portas = []
     lista_resumo_frames = []
 
-    for _, row in df_va.iterrows():
+    for _, row in df_filtrado.iterrows():
       cliente = str(row.get("NAME", row.get("CLIENTE", "N/A"))).strip()
       orfa = str(row.get("ORFA", row.get("ORFA / OP", "N/A"))).strip()
       alinhamento = str(row.get("ALINHAMENTO", "N/A")).strip()
       serigrafia = str(row.get("SERIGRAFIA", "PRETA")).strip().upper()
+      if "CINZA" in alinhamento.upper():
+        serigrafia = "CINZA"
+      elif "PRETO" in alinhamento.upper() or "PRETA" in alinhamento.upper():
+        serigrafia = "PRETA"
+
       qtd_exp = int(row.get("QTD", row.get("QUANTIDADE", 1)))
 
       try:
@@ -111,84 +138,119 @@ if uploaded_file is not None:
         dim_val = 1.25
 
       dim_mm = converter_dimensao_para_mm(dim_val)
-      is_pvt = "PVT" in alinhamento.upper()
-      tipo_porta_desc = "TRANSPARENTE" if is_pvt else "SERIGRAFADA"
+      is_vap = "VAP" in alinhamento.upper()
 
-      # Regra de portas ESQ / DIR
-      if dim_mm == 1875:
-        qtd_esq = 1 * qtd_exp
-        qtd_dir = 2 * qtd_exp
+      if is_vap:
+        # --- LÓGICA VAP (CONGELADOS) ---
+        num_portas_map = {1500: 2, 2250: 3, 3000: 4, 3750: 5}
+        qtd_portas_vap = num_portas_map.get(
+            dim_mm, round(dim_mm / 750)
+        ) * qtd_exp
+
+        cod_porta = CODIGOS_PORTAS_VAP.get(serigrafia, "S/COD")
+        desc_porta = f"PORTA CONG DIR 730X1714 {serigrafia}"
+
+        cod_quadro = CODIGOS_QUADROS_VAP.get((serigrafia, dim_mm), "S/COD")
+        desc_quadro = f"QUADRO {dim_mm}X1735 CONGELADOS {serigrafia}"
+        qtd_quadros = 1 * qtd_exp
+
+        lista_resumo_portas.append({
+            "CÓDIGO": cod_porta,
+            "MODELO DE PORTA": desc_porta,
+            "QTD PORTAS (UN)": qtd_portas_vap,
+        })
+        lista_resumo_frames.append({
+            "CÓDIGO": cod_quadro,
+            "MODELO DE FRAME": desc_quadro,
+            "QTD FRAMES (UN)": qtd_quadros,
+        })
+
+        lista_detalhada.append({
+            "CLIENTE": cliente,
+            "ORFA / OP": orfa,
+            "ALINHAMENTO": alinhamento,
+            "TIPO": "VAP (Congelados)",
+            "DIMENSÃO (m)": dim_val,
+            "QTD EXP": qtd_exp,
+            "CÓD. PORTA DIR": cod_porta,
+            "QTD PORTAS DIR": qtd_portas_vap,
+            "TOTAL PORTAS": qtd_portas_vap,
+            "CÓD. QUADRO": cod_quadro,
+            "QUADRO DESC": desc_quadro,
+            "QTD FRAMES": qtd_quadros,
+        })
+
       else:
-        pares = round(dim_mm / 1250)
-        qtd_esq = pares * qtd_exp
-        qtd_dir = pares * qtd_exp
+        # --- LÓGICA VA (STANDARD) ---
+        is_pvt = "PVT" in alinhamento.upper()
+        tipo_porta_desc = "TRANSPARENTE" if is_pvt else "SERIGRAFADA"
 
-      cod_esq = CODIGOS_PORTAS.get(
-          (serigrafia, tipo_porta_desc, "ESQ"), "S/COD"
-      )
-      cod_dir = CODIGOS_PORTAS.get(
-          (serigrafia, tipo_porta_desc, "DIR"), "S/COD"
-      )
+        if dim_mm == 1875:
+          qtd_esq = 1 * qtd_exp
+          qtd_dir = 2 * qtd_exp
+        else:
+          pares = round(dim_mm / 1250)
+          qtd_esq = pares * qtd_exp
+          qtd_dir = pares * qtd_exp
 
-      # Código e Descrição do Frame
-      cod_frame = CODIGOS_FRAMES.get((serigrafia, dim_mm), "S/COD")
-      desc_frame_txt = (
-          f"CJ FRAME RESFR. {dim_mm} {serigrafia}"
-          if serigrafia == "CINZA"
-          else f"CJ FRAME RESFR {dim_mm} PRETO"
-      )
-      qtd_frames = 1 * qtd_exp
+        cod_esq = CODIGOS_PORTAS_VA.get(
+            (serigrafia, tipo_porta_desc, "ESQ"), "S/COD"
+        )
+        cod_dir = CODIGOS_PORTAS_VA.get(
+            (serigrafia, tipo_porta_desc, "DIR"), "S/COD"
+        )
 
-      # Adicionar ao resumo consolidado de portas
-      lista_resumo_portas.append({
-          "CÓDIGO": cod_esq,
-          "MODELO DE PORTA": (
-              f"PORTA {serigrafia} {tipo_porta_desc} ESQUERDA"
-          ),
-          "QTD PORTAS (UN)": qtd_esq,
-      })
-      lista_resumo_portas.append({
-          "CÓDIGO": cod_dir,
-          "MODELO DE PORTA": f"PORTA {serigrafia} {tipo_porta_desc} DIREITA",
-          "QTD PORTAS (UN)": qtd_dir,
-      })
+        cod_frame = CODIGOS_FRAMES_VA.get((serigrafia, dim_mm), "S/COD")
+        desc_frame_txt = (
+            f"CJ FRAME RESFR. {dim_mm} {serigrafia}"
+            if serigrafia == "CINZA"
+            else f"CJ FRAME RESFR {dim_mm} PRETO"
+        )
+        qtd_frames = 1 * qtd_exp
 
-      # Adicionar ao resumo consolidado de frames
-      lista_resumo_frames.append({
-          "CÓDIGO": cod_frame,
-          "MODELO DE FRAME": desc_frame_txt,
-          "QTD FRAMES (UN)": qtd_frames,
-      })
+        lista_resumo_portas.append({
+            "CÓDIGO": cod_esq,
+            "MODELO DE PORTA": f"PORTA {serigrafia} {tipo_porta_desc} ESQUERDA",
+            "QTD PORTAS (UN)": qtd_esq,
+        })
+        lista_resumo_portas.append({
+            "CÓDIGO": cod_dir,
+            "MODELO DE PORTA": f"PORTA {serigrafia} {tipo_porta_desc} DIREITA",
+            "QTD PORTAS (UN)": qtd_dir,
+        })
+        lista_resumo_frames.append({
+            "CÓDIGO": cod_frame,
+            "MODELO DE FRAME": desc_frame_txt,
+            "QTD FRAMES (UN)": qtd_frames,
+        })
 
-      # Detalhado por item
-      lista_detalhada.append({
-          "CLIENTE": cliente,
-          "ORFA / OP": orfa,
-          "ALINHAMENTO": alinhamento,
-          "DIMENSÃO (m)": dim_val,
-          "QTD EXP": qtd_exp,
-          "CÓD. ESQ": cod_esq,
-          "QTD ESQ": qtd_esq,
-          "CÓD. DIR": cod_dir,
-          "QTD DIR": qtd_dir,
-          "TOTAL PORTAS": qtd_esq + qtd_dir,
-          "CÓD. FRAME": cod_frame,
-          "FRAME DESC": desc_frame_txt,
-          "QTD FRAMES": qtd_frames,
-      })
+        lista_detalhada.append({
+            "CLIENTE": cliente,
+            "ORFA / OP": orfa,
+            "ALINHAMENTO": alinhamento,
+            "TIPO": "VA (Standard)",
+            "DIMENSÃO (m)": dim_val,
+            "QTD EXP": qtd_exp,
+            "CÓD. ESQ": cod_esq,
+            "QTD ESQ": qtd_esq,
+            "CÓD. DIR": cod_dir,
+            "QTD DIR": qtd_dir,
+            "TOTAL PORTAS": qtd_esq + qtd_dir,
+            "CÓD. FRAME": cod_frame,
+            "FRAME DESC": desc_frame_txt,
+            "QTD FRAMES": qtd_frames,
+        })
 
     df_itens = pd.DataFrame(lista_detalhada)
     df_portas_temp = pd.DataFrame(lista_resumo_portas)
     df_frames_temp = pd.DataFrame(lista_resumo_frames)
 
-    # 1. Resumo Consolidado de Portas
     df_portas_resumo = (
         df_portas_temp.groupby(["CÓDIGO", "MODELO DE PORTA"], as_index=False)
         .agg({"QTD PORTAS (UN)": "sum"})
         .sort_values(by="CÓDIGO")
     )
 
-    # 2. Resumo Consolidado de Frames por Código
     df_frames_resumo = (
         df_frames_temp.groupby(["CÓDIGO", "MODELO DE FRAME"], as_index=False)
         .agg({"QTD FRAMES (UN)": "sum"})
@@ -202,17 +264,15 @@ if uploaded_file is not None:
     # --- PAINEL VISUAL NA TELA ---
     st.write("---")
     col1, col2, col3 = st.columns(3)
-    col1.metric("TOTAL DE EXPOSITORES (VA)", total_expositores)
+    col1.metric("TOTAL DE EXPOSITORES", total_expositores)
     col2.metric("TOTAL DE PORTAS (UN)", total_portas_geral)
-    col3.metric("TOTAL DE FRAMES (UN)", total_frames_geral)
+    col3.metric("TOTAL DE FRAMES / QUADROS", total_frames_geral)
 
     st.write("")
-    st.write(
-        "### 1. Resumo Consolidado de Portas por Código e Lado (ESQ / DIR)"
-    )
+    st.write("### 1. Resumo Consolidado de Portas (VA & VAP)")
     st.dataframe(df_portas_resumo, use_container_width=True, hide_index=True)
 
-    st.write("### 2. Resumo Consolidado de Frames por Código e Medida")
+    st.write("### 2. Resumo Consolidado de Frames e Quadros Congelados")
     st.dataframe(df_frames_resumo, use_container_width=True, hide_index=True)
 
     st.write("### 3. Demanda Detalhada por Cliente e Alinhamento")
@@ -256,7 +316,7 @@ if uploaded_file is not None:
 
       c1 = ws["A1"]
       c1.value = (
-          "RELATÓRIO EXECUTIVO - CÁLCULO DE PORTAS E FRAMES (VERTICAL ALTO)"
+          "RELATÓRIO EXECUTIVO - CÁLCULO DE PORTAS E FRAMES (VA & VAP)"
       )
       c1.font = font_main_title
       c1.fill = fill_header
@@ -264,8 +324,7 @@ if uploaded_file is not None:
 
       c2 = ws["A2"]
       c2.value = (
-          "Mapeamento Oficial por Código de Produto (Portas e Frames) | PCP &"
-          " Diretoria"
+          "Mapeamento Oficial por Código de Produto | PCP & Diretoria"
       )
       c2.font = font_subtitle
       c2.fill = fill_header
@@ -277,7 +336,7 @@ if uploaded_file is not None:
       kpis = [
           ("TOTAL EXPOSITORES", tot_exp, "#,##0", "A", "C"),
           ("TOTAL PORTAS (UN)", tot_portas, "#,##0", "D", "G"),
-          ("TOTAL FRAMES (UN)", tot_frames, "#,##0", "H", "M"),
+          ("TOTAL FRAMES / QUADROS", tot_frames, "#,##0", "H", "M"),
       ]
 
       for titulo, valor, formato, col_ini, col_fim in kpis:
@@ -304,7 +363,7 @@ if uploaded_file is not None:
               "1. RESUMO CONSOLIDADO DE PORTAS POR CÓDIGO E MODELO",
               df_portas,
           ),
-          ("2. RESUMO CONSOLIDADO DE FRAMES POR CÓDIGO", df_frames),
+          ("2. RESUMO CONSOLIDADO DE FRAMES E QUADROS POR CÓDIGO", df_frames),
           ("3. DEMANDA DETALHADA POR CLIENTE E ALINHAMENTO", df_detalhado),
       ]
 
@@ -406,7 +465,7 @@ if uploaded_file is not None:
     st.download_button(
         label="📥 Descarregar Relatório Executivo de Portas & Frames (.xlsx)",
         data=excel_portas,
-        file_name="Relatorio_Executivo_Portas_Frames.xlsx",
+        file_name="Relatorio_Executivo_Portas_Frames_VA_VAP.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True,
     )
