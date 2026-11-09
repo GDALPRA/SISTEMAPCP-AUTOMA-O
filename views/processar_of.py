@@ -58,30 +58,27 @@ if uploaded_files:
                         texto_completo = "\n".join(paginas_texto)
                         linhas_todas = [l.strip() for p in paginas_texto for l in p.split("\n") if l.strip()]
 
-                    # --- EXTRAÇÃO INTELIGENTE DE METADADOS DO CABEÇALHO ---
+                    # --- EXTRAÇÃO PRECISA DE METADADOS DO CABEÇALHO ---
                     num_orfa = ""
                     entrega = ""
                     pedido = ""
                     cliente = "NÃO INFORMADO"
 
-                    # Varre as linhas iniciais do documento para encontrar as tags e extrair o valor adjacente
-                    for idx, linha in enumerate(linhas_todas[:30]):
+                    for idx, linha in enumerate(linhas_todas[:35]):
                         linha_upper = linha.upper()
                         
-                        # Procura ORFA
+                        # Captura número da ORFA (ex: 203/2026-(RP190483))
                         if "ORFA" in linha_upper:
-                            # Tenta ver se o valor está na mesma linha
                             m_val = re.search(r"ORFA[:\s]*([A-Za-z0-9\-/()]+)", linha, re.IGNORECASE)
                             if m_val and len(m_val.group(1)) > 1:
                                 num_orfa = m_val.group(1).strip()
                             elif idx + 1 < len(linhas_todas):
-                                # Se não estiver, pega a linha seguinte
                                 prox = linhas_todas[idx + 1]
-                                if re.search(r"\d+/\d+", prox):
+                                if "/" in prox:
                                     num_orfa = prox.strip()
 
-                        # Procura Data de Entrega
-                        if "DATA ENTREGA" in linha_upper or "ENTREGA" in linha_upper:
+                        # Captura Data de Entrega
+                        if "DATA ENTREGA" in linha_upper or ("ENTREGA" in linha_upper and idx < 15):
                             m_val = re.search(r"(\d{2}/\d{2}/\d{4})", linha)
                             if m_val:
                                 entrega = m_val.group(1).strip()
@@ -91,7 +88,7 @@ if uploaded_files:
                                 if m_val2:
                                     entrega = m_val2.group(1).strip()
 
-                        # Procura Pedido
+                        # Captura Pedido
                         if "PEDIDO" in linha_upper and "REPRES" not in linha_upper:
                             m_val = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", linha)
                             if m_val:
@@ -102,7 +99,7 @@ if uploaded_files:
                                 if m_val2:
                                     pedido = m_val2.group(1).strip()
 
-                        # Procura Cliente
+                        # Captura Cliente
                         if "CLIENTE:" in linha_upper:
                             m_cli = re.search(r"CLIENTE[:\s]*(.+)", linha, re.IGNORECASE)
                             if m_cli and len(m_cli.group(1).strip()) > 2:
@@ -110,7 +107,7 @@ if uploaded_files:
                             elif idx + 1 < len(linhas_todas):
                                 cliente = linhas_todas[idx + 1].strip()
 
-                    # Fallbacks caso algum campo fique vazio
+                    # Fallbacks seguros caso encontre campos vazios
                     if not num_orfa:
                         orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-\s*\([A-Za-z0-9\-/]+\))", texto_completo)
                         num_orfa = orfa_fb.group(1).strip() if orfa_fb else uploaded_file.name.replace(".pdf", "")
@@ -357,4 +354,14 @@ if uploaded_files:
                         label="📥 Baixar Relatório Consolidado em Excel (.xlsx)",
                         data=gerar_excel(lotes_orfas),
                         file_name="Relatorio_Consolidado_ORFAS.xlsx",
-                        mime="application/vnd.openxmlformats
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                with col_d2:
+                    st.download_button(
+                        label="📥 Baixar Relatório Consolidado em PDF (.pdf)",
+                        data=gerar_pdf(lotes_orfas),
+                        file_name="Relatorio_Consolidado_ORFAS.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                    )
