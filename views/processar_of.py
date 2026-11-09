@@ -49,7 +49,6 @@ if uploaded_files:
         with st.spinner("Analisando e isolando dados de cada ORFA..."):
             lotes_orfas = []
 
-            # Processa cada arquivo individualmente para garantir zero contaminação cruzada
             for uploaded_file in uploaded_files:
                 try:
                     import pdfplumber
@@ -65,11 +64,9 @@ if uploaded_files:
                     pedido = ""
                     cliente = "NÃO INFORMADO"
 
-                    # Varre as linhas do cabeçalho deste arquivo específico
                     for idx, linha in enumerate(linhas_todas[:35]):
                         linha_upper = linha.upper()
                         
-                        # Captura número da ORFA
                         if "ORFA" in linha_upper or "N°" in linha or "Nº" in linha:
                             m_orfa_direto = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\)|\d{2,4}\s*/\s*\d{4})", linha)
                             if m_orfa_direto:
@@ -80,7 +77,6 @@ if uploaded_files:
                                 if m_orfa_prox:
                                     num_orfa = m_orfa_prox.group(1).strip()
 
-                        # Captura Data de Entrega
                         if "DATA ENTREGA" in linha_upper or ("ENTREGA" in linha_upper and idx < 15):
                             m_val = re.search(r"(\d{2}/\d{2}/\d{4})", linha)
                             if m_val:
@@ -91,18 +87,16 @@ if uploaded_files:
                                 if m_val2:
                                     entrega = m_val2.group(1).strip()
 
-                        # Captura Pedido
                         if "PEDIDO" in linha_upper and "REPRES" not in linha_upper:
-                            m_val = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", linha)
+                            m_val = re.search(r"(P\d{8,10}[A-Za-z0-9\-]*)", linha)
                             if m_val:
                                 pedido = m_val.group(1).strip()
                             elif idx + 1 < len(linhas_todas):
                                 prox = linhas_todas[idx + 1]
-                                m_val2 = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", prox)
+                                m_val2 = re.search(r"(P\d{8,10}[A-Za-z0-9\-]*)", prox)
                                 if m_val2:
                                     pedido = m_val2.group(1).strip()
 
-                        # Captura Cliente
                         if "CLIENTE:" in linha_upper:
                             m_cli = re.search(r"CLIENTE[:\s]*(.+)", linha, re.IGNORECASE)
                             if m_cli and len(m_cli.group(1).strip()) > 2:
@@ -110,7 +104,6 @@ if uploaded_files:
                             elif idx + 1 < len(linhas_todas):
                                 cliente = linhas_todas[idx + 1].strip()
 
-                    # Fallbacks seguros para este arquivo
                     if not num_orfa:
                         orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\))", texto_completo)
                         num_orfa = orfa_fb.group(1).strip() if orfa_fb else uploaded_file.name.replace(".pdf", "")
@@ -120,19 +113,17 @@ if uploaded_files:
                         entrega = dt_fb.group(1).strip() if dt_fb else "-"
 
                     if not pedido:
-                        ped_fb = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", texto_completo)
+                        ped_fb = re.search(r"(P\d{8,10}[A-Za-z0-9\-]*)", texto_completo)
                         pedido = ped_fb.group(1).strip() if ped_fb else "N/A"
 
                     itens_orfa = []
 
-                    # Processamento dos itens e endereços deste PDF específico
                     for pagina in paginas_texto:
                         if "Resumo de Balcões por Endereço" in pagina:
                             continue
 
                         linhas = pagina.split("\n")
                         for i, linha in enumerate(linhas):
-                            # Captura linha de item (ex: "01 VR2P 2500 (11.1)" ou "01 VABP PVT 2500 (1.1)")
                             m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU|IRAS|VR2P|VR2PA|VRPAS).*?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
                             
                             if m_item:
@@ -140,7 +131,6 @@ if uploaded_files:
                                 
                                 modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
                                 
-                                # Extração rigorosa do endereço estritamente dentro do formato de parênteses (ex: 11.1, 1.2-1.3)
                                 endereco = "1.1"
                                 if end_opt and re.search(r"^\d+[\d\.\-\s]*$", end_opt.strip()):
                                     endereco = end_opt.strip()
@@ -157,11 +147,12 @@ if uploaded_files:
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 ilum = re.search(r"Iluminação:\s*([^\n|]+)", bloco, re.IGNORECASE)
 
-                                val_tt = acb_tt.group(1).strip() if acb_tt else "INOX"
-                                val_car = caren.group(1).strip() if caren else "PRETO (P1902)"
-                                val_ext = acb_ext.group(1).strip() if acb_ext else "PRETO (P1902)"
-                                val_gas = gas.group(1).strip() if gas else "GLICOL"
-                                val_ilu = ilum.group(1).strip() if ilum else "4000K"
+                                # Captura estritamente o valor extraído do PDF (sem forçar valores genéricos)
+                                val_tt = acb_tt.group(1).strip() if acb_tt else "-"
+                                val_car = caren.group(1).strip() if caren else "-"
+                                val_ext = acb_ext.group(1).strip() if acb_ext else "-"
+                                val_gas = gas.group(1).strip() if gas else "-"
+                                val_ilu = ilum.group(1).strip() if ilum else "-"
 
                                 val_tt = re.split(r"Ach\.|Acb\.|Bojo", val_tt)[0].strip()
                                 val_car = re.split(r"Porta|Serigrafia", val_car)[0].strip()
@@ -171,31 +162,12 @@ if uploaded_files:
                                     "qtd": q_str.strip(),
                                     "modelo": modelo_limpo,
                                     "end": endereco,
-                                    "acb_tt_pnl": val_tt if val_tt else "INOX",
-                                    "carenagem": val_car if val_car else "PRETO (P1902)",
-                                    "acb_ext": val_ext if val_ext else "PRETO (P1902)",
-                                    "gas": val_gas if val_gas else "GLICOL",
-                                    "ilum": val_ilu if val_ilu else "4000K"
+                                    "acb_tt_pnl": val_tt if val_tt else "-",
+                                    "carenagem": val_car if val_car else "-",
+                                    "acb_ext": val_ext if val_ext else "-",
+                                    "gas": val_gas if val_gas else "-",
+                                    "ilum": val_ilu if val_ilu else "-"
                                 })
-
-                    # Caso utilize fallback de tabela resumo se necessário
-                    if not itens_orfa and "Resumo de Balcões por Endereço" in texto_completo:
-                        for pagina in paginas_texto:
-                            if "Resumo de Balcões por Endereço" in pagina:
-                                for linha in pagina.split("\n"):
-                                    m_res = re.match(r"^(\d{2})\s+([A-Z0-9\s\+]+?)\s+(\d+)\s+(\d+)\s+([\d\.\-]+)", linha.strip())
-                                    if m_res:
-                                        q_str, modelo_base, larg, comp, endereco = m_res.groups()
-                                        itens_orfa.append({
-                                            "qtd": q_str.strip(),
-                                            "modelo": f"{modelo_base.strip()} {comp.strip()}",
-                                            "end": endereco.strip(),
-                                            "acb_tt_pnl": "INOX",
-                                            "carenagem": "VINHO (H1007)",
-                                            "acb_ext": "VINHO (H1007)",
-                                            "gas": "GLICOL",
-                                            "ilum": "4000K"
-                                        })
 
                     lotes_orfas.append({
                         "orfa": num_orfa,
