@@ -124,7 +124,8 @@ if uploaded_files:
 
                         linhas = pagina.split("\n")
                         for i, linha in enumerate(linhas):
-                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU|IRAS|VR2P|VR2PA|VRPAS).*?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
+                            # Regex flexível que captura qualquer linha de item iniciada por 2 dígitos de quantidade
+                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
                             
                             if m_item:
                                 q_str, modelo_raw, end_opt = m_item.groups()
@@ -147,7 +148,6 @@ if uploaded_files:
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 ilum = re.search(r"Iluminação:\s*([^\n|]+)", bloco, re.IGNORECASE)
 
-                                # Captura estritamente o valor extraído do PDF (sem forçar valores genéricos)
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "-"
                                 val_car = caren.group(1).strip() if caren else "-"
                                 val_ext = acb_ext.group(1).strip() if acb_ext else "-"
@@ -188,7 +188,11 @@ if uploaded_files:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
                     st.markdown(f"**Cliente:** {lote['cliente']}")
 
-                    df_exib = pd.DataFrame(lote['itens'])
+                    # Proteção e definição explícita das colunas do DataFrame
+                    df_exib = pd.DataFrame(
+                        lote['itens'] if lote['itens'] else [{"qtd": "-", "modelo": "Nenhum item detectado", "end": "-", "acb_tt_pnl": "-", "carenagem": "-", "acb_ext": "-", "gas": "-", "ilum": "-"}],
+                        columns=["qtd", "modelo", "end", "acb_tt_pnl", "carenagem", "acb_ext", "gas", "ilum"]
+                    )
                     df_exib.columns = ["Qtd", "Item/Modelo", "End.", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "GÁS", "ILUM."]
                     st.dataframe(df_exib, use_container_width=True, hide_index=True)
                     st.markdown("---")
@@ -272,7 +276,8 @@ if uploaded_files:
 
                     story = []
                     
-                    t_top = Table([[Paragraph(f"RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS — Total de ORFAs: {len(lotes)}", style_title)]], colWidths=[27.7*cm])
+                    pdf_title_text = f"RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS — Total de ORFAs: {len(lotes)}"
+                    t_top = Table([[Paragraph(pdf_title_text, style_title)]], colWidths=[27.7*cm])
                     t_top.setStyle(TableStyle([
                         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#1F497D")),
                         ('TOPPADDING', (0,0), (-1,-1), 8),
