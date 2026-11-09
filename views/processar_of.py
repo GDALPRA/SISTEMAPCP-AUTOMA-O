@@ -125,9 +125,10 @@ if uploaded_files:
                         linhas = pagina.split("\n")
                         for i, linha in enumerate(linhas):
                             linha_clean = linha.strip()
+                            linha_upper = linha_clean.upper()
                             
-                            # Filtro rigoroso: ignora linhas que sejam divisórias, acessórios avulsos ou rodapés
-                            if any(termo in linha_clean.upper() for termo in ["DIVISORIA", "DIVISÓRIA", "CANTONEIRA", "ESCANINHO"]):
+                            # Filtro abrangente para ignorar divisórias e acessórios internos (singular e plural)
+                            if any(termo in linha_upper for termo in ["DIVISORI", "CANTONEIRA", "ESCANINHO"]):
                                 continue
 
                             m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha_clean)
@@ -136,9 +137,9 @@ if uploaded_files:
                                 q_str, modelo_raw, end_opt = m_item.groups()
                                 
                                 modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
+                                modelo_upper = modelo_limpo.upper()
                                 
-                                # Ignora falsos positivos caso o modelo contenha termos de acessórios
-                                if any(termo in modelo_limpo.upper() for termo in ["DIVISORIA", "DIVISÓRIA", "CANTONEIRA"]):
+                                if any(termo in modelo_upper for termo in ["DIVISORI", "CANTONEIRA"]):
                                     continue
 
                                 endereco = "1.1"
@@ -156,8 +157,8 @@ if uploaded_files:
                                 acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 
-                                # Captura robusta para iluminação (trata variações como 'luminação', 'Ilum.', 'Iluminação')
-                                ilum = re.search(r"(?:Ilumi?nação|Ilum\.?)[:\s]*([^\n|]+)", bloco, re.IGNORECASE)
+                                # Captura robusta para iluminação (trata variações com ou sem a letra 'I' inicial)
+                                ilum = re.search(r"(?:[IÍií]?lumi?nação|[Ll]umi?nação|ilum\.?)[:\s]*([^\n|]+)", bloco, re.IGNORECASE)
 
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "-"
                                 val_car = caren.group(1).strip() if caren else "-"
