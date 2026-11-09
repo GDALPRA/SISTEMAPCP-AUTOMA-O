@@ -4,6 +4,7 @@ import re
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+import pandas as pd  # <-- Biblioteca pandas importada corretamente
 
 # Bibliotecas para o PDF Executivo (ReportLab)
 from reportlab.lib import colors
@@ -67,7 +68,7 @@ if uploaded_files:
           entrega = dt_entrega_m.group(1).strip() if dt_entrega_m else "-"
           cliente = cli_m.group(1).strip() if cli_m else "CLIENTE NÃO INFORMADO"
 
-          # Extração de características globais da ORFA (se aplicável aos blocos)
+          # Características globais de acabamento extraídas do documento
           acb_tcn_m = re.search(r"Acb\.\s*TT/PNL:\s*([^\n]+)", texto_completo, re.IGNORECASE)
           carenagem_m = re.search(r"Caren\.\s*Frontal:\s*([^\n]+)", texto_completo, re.IGNORECASE)
           acb_ext_m = re.search(r"Acb\.\s*Externo:\s*([^\n]+)", texto_completo, re.IGNORECASE)
@@ -77,63 +78,71 @@ if uploaded_files:
           acb_tcn_global = acb_tcn_m.group(1).strip() if acb_tcn_m else "INOX"
           carenagem_global = carenagem_m.group(1).strip() if carenagem_m else "PRETO (P1902)"
           acb_ext_global = acb_ext_m.group(1).strip() if acb_ext_m else "PRETO (P1902)"
-          gas_global = gas_m.group(1).strip() if gas_m else "R22"
-          ilum_m_global = ilum_m.group(1).strip() if ilum_m else "4000K"
+          gas_global = gas_m.group(1).strip() if gas_m else "GLICOL"
+          ilum_global = ilum_m.group(1).strip() if ilum_m else "4000K"
 
-          # Varre linhas para extrair os balcões e quantidades (ex: "01 VABP PVT 2500", "02 VAP 3750", etc.)
           itens_orfa = []
-          linhas = texto_completo.split("\n")
-          for linha in linhas:
-            # Padrão: Qtd (2 dígitos) seguida do modelo e opcionalmente endereço entre parênteses
-            m_item = re.match(r"^(\s*0?[1-9])\s+([A-Z0-9\s\-]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(|$)", linha.strip())
-            if m_item:
-              q_str, modelo = m_item.groups()
-              try:
-                qtd = int(q_str.strip())
-              except:
-                qtd = 1
 
-              # Tenta extrair endereço se houver na linha seguinte ou na mesma linha
-              end_m = re.search(r"\(([\d\.\-]+)\)", linha)
-              endereco = end_m.group(1) if end_m else "1.1"
+          # Varre a tabela de resumo final da ORFA (se presente no documento)
+          if "Resumo de Balcões por Endereço" in texto_completo or "Balcão" in texto_completo:
+            linhas = texto_completo.split("\n")
+            capturando = False
+            for linha in linhas:
+              if "Resumo de Balcões por Endereço" in linha:
+                capturando = True
+                continue
+              if capturando:
+                # Padrão da tabela de resumo: Qtd (ex: 01, 03) | Balcão (ex: VABP PVT) | Largura | Comprimento | Endereço (ex: 1.2-1.3-1.4)
+                m_res = re.match(r"^(\d{2})\s+([A-Z0-9\s\+]+?)\s+(\d+)\s+(\d+)\s+([\d\.\-]+)", linha.strip())
+                if m_res:
+                  q_str, modelo_base, largura, comprimento, endereco = m_res.groups()
+                  modelo_completo = f"{modelo_base.strip()} {comprimento.strip()}"
+                  itens_orfa.append({
+                      "qtd": q_str.strip(),
+                      "modelo": modelo_completo,
+                      "end": endereco.strip(),
+                      "acb_tt_pnl": acb_tcn_global,
+                      "carenagem": carenagem_global,
+                      "acb_ext": acb_ext_global,
+                      "gas": gas_global,
+                      "ilum": ilum_global
+                  })
 
-              itens_orfa.append({
-                  "qtd": f"{qtd:02d}",
-                  "modelo": modelo.strip(),
-                  "end": endereco,
-                  "acb_tt_pnl": acb_tcn_global,
-                  "carenagem": carenagem_global,
-                  "acb_ext": acb_ext_global,
-                  "gas": gas_global,
-                  "ilum": ilum_m_global
-              })
-
-          # Fallback caso não ache via regex estrita mas existam balcões conhecidos no texto
+          # Fallback: Se não pegou pela tabela de resumo, busca linhas comuns de modelos no texto
           if not itens_orfa:
-            for termo in ["VAP", "VALP", "VABP", "VACP", "VAH", "VRAG", "VRA2P"]:
-              if termo in texto_completo:
+            linhas = texto_completo.split("\n")
+            for linha in linhas:
+              m_item = re.match(r"^(\s*0?[1-9])\s+([A-Z0-9\s\-]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG).*?)(?:\s*\(|$)", linha.strip())
+              if m_item:
+                q_str, modelo = m_item.groups()
+                try:
+                  q_val = int(q_str.strip())
+                except:
+                  q_val = 1
+                end_m = re.search(r"\(([\d\.\-]+)\)", linha)
+                endereco = end_m.group(1) if end_m else "1.1"
+
                 itens_orfa.append({
-                    "qtd": "01",
-                    "modelo": f"BALCÃO {termo}",
-                    "end": "1.1",
+                    "qtd": f"{q_val:02d}",
+                    "modelo": modelo.strip(),
+                    "end": endereco,
                     "acb_tt_pnl": acb_tcn_global,
                     "carenagem": carenagem_global,
                     "acb_ext": acb_ext_global,
                     "gas": gas_global,
-                    "ilum": ilum_m_global
+                    "ilum": ilum_global
                 })
-                break
 
           if not itens_orfa:
             itens_orfa.append({
-                "qtd": "00",
-                "modelo": "Nenhum expositor identificado",
-                "end": "-",
-                "acb_tt_pnl": "-",
-                "carenagem": "-",
-                "acb_ext": "-",
-                "gas": "-",
-                "ilum": "-"
+                "qtd": "01",
+                "modelo": "EXPOSITOR GERAL ORFA",
+                "end": "1.1",
+                "acb_tt_pnl": acb_tcn_global,
+                "carenagem": carenagem_global,
+                "acb_ext": acb_ext_global,
+                "gas": gas_global,
+                "ilum": ilum_global
             })
 
           lotes_orfas.append({
@@ -158,7 +167,6 @@ if uploaded_files:
           st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
           st.markdown(f"**Cliente:** {lote['cliente']}")
 
-          # Cria tabela de exibição
           df_exibicao = pd.DataFrame(lote['itens'])
           df_exibicao.columns = ["Qtd", "Item/Modelo", "End.", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "GÁS", "ILUM."]
           st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
@@ -228,9 +236,9 @@ if uploaded_files:
               ws.row_dimensions[current_row].height = 18
               current_row += 1
 
-            current_row += 15  # Espaço entre ORFAs
+            current_row += 2
 
-          widths = {'A': 8, 'B': 25, 'C': 10, 'D': 18, 'E': 18, 'F': 18, 'G': 12, 'H': 12}
+          widths = {'A': 8, 'B': 30, 'C': 12, 'D': 18, 'E': 18, 'F': 18, 'G': 12, 'H': 12}
           for col_letter, width in widths.items():
             ws.column_dimensions[col_letter].width = width
 
