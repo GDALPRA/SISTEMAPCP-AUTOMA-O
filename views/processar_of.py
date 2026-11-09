@@ -46,7 +46,7 @@ if uploaded_files:
     st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso.")
 
     if st.button("🚀 Processar ORFAs e Gerar Relatório Consolidado", type="primary"):
-        with st.spinner("Analisando PDFs e alocando endereços corretamente..."):
+        with st.spinner("Analisando metadados das ORFAs e alocando endereços..."):
             lotes_orfas = []
 
             for uploaded_file in uploaded_files:
@@ -57,11 +57,11 @@ if uploaded_files:
                         paginas_texto = [page.extract_text() or "" for page in pdf.pages]
                         texto_completo = "\n".join(paginas_texto)
 
-                    # Metadados do Cabeçalho da ORFA
-                    orfa_m = re.search(r"N[º°]?\s*ORFA:\s*([A-Za-z0-9\-/]+(?:\([^)]+\))?)", texto_completo, re.IGNORECASE)
-                    ped_m = re.search(r"N[º°]?\s*PEDIDO:\s*([A-Za-z0-9\-/]+)", texto_completo, re.IGNORECASE)
-                    dt_entrega_m = re.search(r"DATA ENTREGA:\s*([\d/]+)", texto_completo, re.IGNORECASE)
-                    cli_m = re.search(r"CLIENTE:\s*(.+)", texto_completo, re.IGNORECASE)
+                    # --- EXTRAÇÃO ROBUSTA DE METADADOS (Tratando variações com º, ° e quebras) ---
+                    orfa_m = re.search(r"N[º°]?\s*ORFA[:\s]*([A-Za-z0-9\-/()]+)", texto_completo, re.IGNORECASE)
+                    ped_m = re.search(r"N[º°]?\s*PEDIDO[:\s]*([A-Za-z0-9\-/]+(?:\s*Rev[:\s]*[A-Za-z0-9]*)?)", texto_completo, re.IGNORECASE)
+                    dt_entrega_m = re.search(r"DATA\s*ENTREGA[:\s]*([\d/]+)", texto_completo, re.IGNORECASE)
+                    cli_m = re.search(r"CLIENTE[:\s]*(.+)", texto_completo, re.IGNORECASE)
 
                     num_orfa = orfa_m.group(1).strip() if orfa_m else uploaded_file.name.replace(".pdf", "")
                     pedido = ped_m.group(1).strip() if ped_m else "N/A"
@@ -72,7 +72,6 @@ if uploaded_files:
 
                     # Processamento por Páginas/Blocos da ORFA
                     for pagina in paginas_texto:
-                        # Ignora a página do resumo no final para não duplicar itens
                         if "Resumo de Balcões por Endereço" in pagina:
                             continue
 
@@ -84,17 +83,14 @@ if uploaded_files:
                             if m_item:
                                 q_str, modelo_raw, end_opt = m_item.groups()
                                 
-                                # Se o endereço ficou dentro do modelo_raw, remove de lá
                                 modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
                                 
-                                # Se não pegou no grupo 3 da Regex, procura por parênteses na própria linha
                                 if not end_opt:
                                     end_match = re.search(r"\(([\d\.\-\s]+)\)", linha)
                                     endereco = end_match.group(1).strip() if end_match else "1.1"
                                 else:
                                     endereco = end_opt.strip()
 
-                                # Pega o contexto próximo ao redor deste item para extrair as cores reais
                                 bloco = "\n".join(linhas[max(0, i-6):min(len(linhas), i+12)])
                                 
                                 acb_tt = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", bloco, re.IGNORECASE)
@@ -109,7 +105,6 @@ if uploaded_files:
                                 val_gas = gas.group(1).strip() if gas else "GLICOL"
                                 val_ilu = ilum.group(1).strip() if ilum else "4000K"
 
-                                # Limpeza de fragmentos de outras colunas que possam ter vazado na leitura
                                 val_tt = re.split(r"Ach\.|Acb\.|Bojo", val_tt)[0].strip()
                                 val_car = re.split(r"Porta|Serigrafia", val_car)[0].strip()
                                 val_ext = re.split(r"Fluido|Gás|Porta", val_ext)[0].strip()
@@ -125,7 +120,6 @@ if uploaded_files:
                                     "ilum": val_ilu if val_ilu else "4000K"
                                 })
 
-                    # Se a busca por blocos falhar completamente, usa a tabela de resumo como fallback
                     if not itens_orfa and "Resumo de Balcões por Endereço" in texto_completo:
                         for pagina in paginas_texto:
                             if "Resumo de Balcões por Endereço" in pagina:
@@ -158,7 +152,6 @@ if uploaded_files:
             if lotes_orfas:
                 st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
-                # Exibição dos dados organizados por ORFA
                 st.markdown("---")
                 for lote in lotes_orfas:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
