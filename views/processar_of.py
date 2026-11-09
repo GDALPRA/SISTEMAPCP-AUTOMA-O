@@ -56,35 +56,82 @@ if uploaded_files:
                     with pdfplumber.open(uploaded_file) as pdf:
                         paginas_texto = [page.extract_text() or "" for page in pdf.pages]
                         texto_completo = "\n".join(paginas_texto)
+                        linhas_todas = [l.strip() for p in paginas_texto for l in p.split("\n") if l.strip()]
 
-                    # --- EXTRAÇÃO DIRETA POR PADRÕES DE DADOS (Blindada contra quebras de tabela) ---
-                    # Procura padrão de ORFA (ex: 203/2026-(RP190483) ou 163/2026)
-                    orfa_m = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-\s*\([A-Za-z0-9\-/]+\)|\d{2,4}\s*/\s*\d{4})", texto_completo)
-                    
-                    # Procura padrão de Data de Entrega (dd/mm/aaaa)
-                    dt_entrega_m = re.search(r"(\d{2}/\d{2}/\d{4})", texto_completo)
-                    
-                    # Procura padrão de Pedido (ex: P260817021B)
-                    ped_m = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", texto_completo)
-                    
-                    # Procura Cliente (ex: IRMAOS ANDREAZZA LTDA)
-                    cli_m = re.search(r"CLIENTE[:\s]*\n?([^\n]+)", texto_completo, re.IGNORECASE)
+                    # --- EXTRAÇÃO INTELIGENTE DE METADADOS DO CABEÇALHO ---
+                    num_orfa = ""
+                    entrega = ""
+                    pedido = ""
+                    cliente = "NÃO INFORMADO"
 
-                    num_orfa = orfa_m.group(1).strip() if orfa_m else uploaded_file.name.replace(".pdf", "")
-                    entrega = dt_entrega_m.group(1).strip() if dt_entrega_m else "-"
-                    pedido = ped_m.group(1).strip() if ped_m else "N/A"
-                    cliente = cli_m.group(1).strip() if cli_m else "NÃO INFORMADO"
+                    # Varre as linhas iniciais do documento para encontrar as tags e extrair o valor adjacente
+                    for idx, linha in enumerate(linhas_todas[:30]):
+                        linha_upper = linha.upper()
+                        
+                        # Procura ORFA
+                        if "ORFA" in linha_upper:
+                            # Tenta ver se o valor está na mesma linha
+                            m_val = re.search(r"ORFA[:\s]*([A-Za-z0-9\-/()]+)", linha, re.IGNORECASE)
+                            if m_val and len(m_val.group(1)) > 1:
+                                num_orfa = m_val.group(1).strip()
+                            elif idx + 1 < len(linhas_todas):
+                                # Se não estiver, pega a linha seguinte
+                                prox = linhas_todas[idx + 1]
+                                if re.search(r"\d+/\d+", prox):
+                                    num_orfa = prox.strip()
+
+                        # Procura Data de Entrega
+                        if "DATA ENTREGA" in linha_upper or "ENTREGA" in linha_upper:
+                            m_val = re.search(r"(\d{2}/\d{2}/\d{4})", linha)
+                            if m_val:
+                                entrega = m_val.group(1).strip()
+                            elif idx + 1 < len(linhas_todas):
+                                prox = linhas_todas[idx + 1]
+                                m_val2 = re.search(r"(\d{2}/\d{2}/\d{4})", prox)
+                                if m_val2:
+                                    entrega = m_val2.group(1).strip()
+
+                        # Procura Pedido
+                        if "PEDIDO" in linha_upper and "REPRES" not in linha_upper:
+                            m_val = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", linha)
+                            if m_val:
+                                pedido = m_val.group(1).strip()
+                            elif idx + 1 < len(linhas_todas):
+                                prox = linhas_todas[idx + 1]
+                                m_val2 = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", prox)
+                                if m_val2:
+                                    pedido = m_val2.group(1).strip()
+
+                        # Procura Cliente
+                        if "CLIENTE:" in linha_upper:
+                            m_cli = re.search(r"CLIENTE[:\s]*(.+)", linha, re.IGNORECASE)
+                            if m_cli and len(m_cli.group(1).strip()) > 2:
+                                cliente = m_cli.group(1).strip()
+                            elif idx + 1 < len(linhas_todas):
+                                cliente = linhas_todas[idx + 1].strip()
+
+                    # Fallbacks caso algum campo fique vazio
+                    if not num_orfa:
+                        orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-\s*\([A-Za-z0-9\-/]+\))", texto_completo)
+                        num_orfa = orfa_fb.group(1).strip() if orfa_fb else uploaded_file.name.replace(".pdf", "")
+                    
+                    if not entrega:
+                        dt_fb = re.search(r"(\d{2}/\d{2}/\d{4})", texto_completo)
+                        entrega = dt_fb.group(1).strip() if dt_fb else "-"
+
+                    if not pedido:
+                        ped_fb = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", texto_completo)
+                        pedido = ped_fb.group(1).strip() if ped_fb else "N/A"
 
                     itens_orfa = []
 
-                    # Processamento por Páginas/Blocos da ORFA (evitando a página de resumo final para não duplicar)
+                    # Processamento por Páginas/Blocos da ORFA
                     for pagina in paginas_texto:
                         if "Resumo de Balcões por Endereço" in pagina:
                             continue
 
                         linhas = pagina.split("\n")
                         for i, linha in enumerate(linhas):
-                            # Captura modelos com quantidade e o parênteses de endereço ex: "01 VABP PVT 2500 (1.1)"
                             m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
                             
                             if m_item:
@@ -310,14 +357,4 @@ if uploaded_files:
                         label="📥 Baixar Relatório Consolidado em Excel (.xlsx)",
                         data=gerar_excel(lotes_orfas),
                         file_name="Relatorio_Consolidado_ORFAS.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                    )
-                with col_d2:
-                    st.download_button(
-                        label="📥 Baixar Relatório Consolidado em PDF (.pdf)",
-                        data=gerar_pdf(lotes_orfas),
-                        file_name="Relatorio_Consolidado_ORFAS.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                    )
+                        mime="application/vnd.openxmlformats
