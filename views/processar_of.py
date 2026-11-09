@@ -1,6 +1,5 @@
 from datetime import datetime
 import io
-import os
 import re
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -26,8 +25,8 @@ import streamlit as st
 st.markdown(
     """
     <div style="background-color: #1F497D; color: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h2 style="margin: 0; font-weight: 700;">📊 PROCESSADOR DE PEDIDOS - EXCEL & PDF EXECUTIVO</h2>
-        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Portal Corporativo de PCP & Engenharia - Automação de Relatórios</p>
+        <h2 style="margin: 0; font-weight: 700;">📋 RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS (ORFAS)</h2>
+        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Portal Corporativo de PCP & Engenharia - Extração por Lote de ORFAs</p>
     </div>
 """,
     unsafe_allow_html=True,
@@ -37,425 +36,215 @@ st.write("")
 
 # --- ÁREA DE UPLOAD DE MÚLTIPLOS PDFS ---
 uploaded_files = st.file_uploader(
-    "Arraste ou selecione os arquivos PDF dos pedidos de origem (.pdf)",
+    "Arraste ou selecione os arquivos PDF das ORFAs de origem (.pdf)",
     type=["pdf"],
     accept_multiple_files=True,
-    key="pdf_uploader_gerencial",
+    key="pdf_uploader_orfas",
 )
 
 if uploaded_files:
-  st.info(
-      f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso na"
-      " memória."
-  )
+  st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso na memória.")
 
-  if st.button("🚀 Processar Dados e Gerar Relatórios", type="primary"):
-    with st.spinner(
-        "Extraindo dados dos PDFs e gerando relatórios executivos..."
-    ):
-      dados = []
+  if st.button("🚀 Gerar Relatório Consolidado de ORFAs", type="primary"):
+    with st.spinner("Analisando as ORFAs e estruturando os grupos de separação..."):
+      lotes_orfas = []
 
       for uploaded_file in uploaded_files:
         try:
           import pdfplumber
 
           with pdfplumber.open(uploaded_file) as pdf:
-            texto = "\n".join(
-                [page.extract_text() or "" for page in pdf.pages]
-            )
+            texto_completo = "\n".join([page.extract_text() or "" for page in pdf.pages])
 
-          # Extração dos dados de cabeçalho da ORFA
-          ped_m = re.search(r"N[º°]\s*PEDIDO:\s*([A-Za-z0-9\-/]+)", texto, re.IGNORECASE)
-          dt_venda_m = re.search(r"DATA ENTREGA:\s*([\d/]+)", texto, re.IGNORECASE)
-          cli_m = re.search(r"CLIENTE:\s*(.+)", texto, re.IGNORECASE)
-          cid_m = re.search(r"CIDADE:\s*(.+)", texto, re.IGNORECASE)
-          orfa_m = re.search(r"N[º°]\s*ORFA:\s*([A-Za-z0-9\-/]+)", texto, re.IGNORECASE)
+          # Extração de Metadados da ORFA
+          orfa_m = re.search(r"N[º°]\s*ORFA:\s*([A-Za-z0-9\-/]+)", texto_completo, re.IGNORECASE)
+          ped_m = re.search(r"N[º°]\s*PEDIDO:\s*([A-Za-z0-9\-/]+)", texto_completo, re.IGNORECASE)
+          dt_entrega_m = re.search(r"DATA ENTREGA:\s*([\d/]+)", texto_completo, re.IGNORECASE)
+          cli_m = re.search(r"CLIENTE:\s*(.+)", texto_completo, re.IGNORECASE)
 
-          pedido = ped_m.group(1).strip() if ped_m else "N/A"
-          prev_entrega = dt_venda_m.group(1).strip() if dt_venda_m else "N/A"
-          data_venda = "-"
-          cliente = cli_m.group(1).strip() if cli_m else "Cliente Desconhecido"
-          cidade_uf = cid_m.group(1).strip() if cid_m else ""
           num_orfa = orfa_m.group(1).strip() if orfa_m else uploaded_file.name
+          pedido = ped_m.group(1).strip() if ped_m else "N/A"
+          entrega = dt_entrega_m.group(1).strip() if dt_entrega_m else "-"
+          cliente = cli_m.group(1).strip() if cli_m else "CLIENTE NÃO INFORMADO"
 
-          # Captura dos itens de expositores no formato da ORFA (ex: "01 VABP PVT 2500" ou "03 VABP PVT 3750")
-          padrao_orfa_itens = re.compile(r"(\d{2})\s+([A-Z0-9\s\-]+?)\s*\(?([\d\.\-]+)?\)?$", re.MULTILINE)
-          
-          # Varre buscando linhas de produtos comuns em ORFA
-          linhas_texto = texto.split("\n")
-          for linha in linhas_texto:
-            # Procura padrões de quantidade seguidos de modelo (ex: "01 VABP PVT 2500" ou "02 VAP 3750")
-            m_item = re.match(r"^(\d{2})\s+([A-Z0-9\s\-/]+(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG).*?)(?:\s*\(|$)", linha.strip())
+          # Extração de características globais da ORFA (se aplicável aos blocos)
+          acb_tcn_m = re.search(r"Acb\.\s*TT/PNL:\s*([^\n]+)", texto_completo, re.IGNORECASE)
+          carenagem_m = re.search(r"Caren\.\s*Frontal:\s*([^\n]+)", texto_completo, re.IGNORECASE)
+          acb_ext_m = re.search(r"Acb\.\s*Externo:\s*([^\n]+)", texto_completo, re.IGNORECASE)
+          gas_m = re.search(r"Fluido/Gás:\s*([^\n]+)", texto_completo, re.IGNORECASE)
+          ilum_m = re.search(r"Iluminação:\s*([^\n]+)", texto_completo, re.IGNORECASE)
+
+          acb_tcn_global = acb_tcn_m.group(1).strip() if acb_tcn_m else "INOX"
+          carenagem_global = carenagem_m.group(1).strip() if carenagem_m else "PRETO (P1902)"
+          acb_ext_global = acb_ext_m.group(1).strip() if acb_ext_m else "PRETO (P1902)"
+          gas_global = gas_m.group(1).strip() if gas_m else "R22"
+          ilum_m_global = ilum_m.group(1).strip() if ilum_m else "4000K"
+
+          # Varre linhas para extrair os balcões e quantidades (ex: "01 VABP PVT 2500", "02 VAP 3750", etc.)
+          itens_orfa = []
+          linhas = texto_completo.split("\n")
+          for linha in linhas:
+            # Padrão: Qtd (2 dígitos) seguida do modelo e opcionalmente endereço entre parênteses
+            m_item = re.match(r"^(\s*0?[1-9])\s+([A-Z0-9\s\-]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(|$)", linha.strip())
             if m_item:
-              q_str, desc_prod = m_item.groups()
+              q_str, modelo = m_item.groups()
               try:
-                qtd_float = float(q_str)
+                qtd = int(q_str.strip())
               except:
-                qtd_float = 1.0
+                qtd = 1
 
-              # Tenta extrair código fictício ou basear na descrição
-              cod_prod = "".join(filter(str.isalnum, desc_prod.split()[0]))[:6].upper()
-              if len(cod_prod) < 3:
-                cod_prod = "999999"
+              # Tenta extrair endereço se houver na linha seguinte ou na mesma linha
+              end_m = re.search(r"\(([\d\.\-]+)\)", linha)
+              endereco = end_m.group(1) if end_m else "1.1"
 
-              dados.append({
-                  "arquivo": uploaded_file.name,
-                  "pedido": f"{num_orfa} (Ped: {pedido})",
-                  "data_venda": data_venda,
-                  "prev_entrega": prev_entrega,
-                  "cliente": cliente,
-                  "cidade_uf": cidade_uf,
-                  "frete": "PADRÃO",
-                  "cod_prod": cod_prod,
-                  "descricao": desc_prod.strip(),
-                  "quantidade": qtd_float,
+              itens_orfa.append({
+                  "qtd": f"{qtd:02d}",
+                  "modelo": modelo.strip(),
+                  "end": endereco,
+                  "acb_tt_pnl": acb_tcn_global,
+                  "carenagem": carenagem_global,
+                  "acb_ext": acb_ext_global,
+                  "gas": gas_global,
+                  "ilum": ilum_m_global
               })
 
-          # Fallback caso a regex específica não pegue alguma linha formatada diferente
-          if not dados:
-            dados.append({
-                "arquivo": uploaded_file.name,
-                "pedido": f"ORFA {num_orfa}",
-                "data_venda": "-",
-                "prev_entrega": prev_entrega,
-                "cliente": cliente,
-                "cidade_uf": cidade_uf,
-                "frete": "PADRÃO",
-                "cod_prod": "100000",
-                "descricao": f"Lote ORFA {num_orfa} - Processamento Geral",
-                "quantidade": 1.0,
+          # Fallback caso não ache via regex estrita mas existam balcões conhecidos no texto
+          if not itens_orfa:
+            for termo in ["VAP", "VALP", "VABP", "VACP", "VAH", "VRAG", "VRA2P"]:
+              if termo in texto_completo:
+                itens_orfa.append({
+                    "qtd": "01",
+                    "modelo": f"BALCÃO {termo}",
+                    "end": "1.1",
+                    "acb_tt_pnl": acb_tcn_global,
+                    "carenagem": carenagem_global,
+                    "acb_ext": acb_ext_global,
+                    "gas": gas_global,
+                    "ilum": ilum_m_global
+                })
+                break
+
+          if not itens_orfa:
+            itens_orfa.append({
+                "qtd": "00",
+                "modelo": "Nenhum expositor identificado",
+                "end": "-",
+                "acb_tt_pnl": "-",
+                "carenagem": "-",
+                "acb_ext": "-",
+                "gas": "-",
+                "ilum": "-"
             })
 
+          lotes_orfas.append({
+              "orfa": num_orfa,
+              "pedido": pedido,
+              "entrega": entrega,
+              "cliente": cliente,
+              "itens": itens_orfa
+          })
+
         except Exception as e:
-          st.error(f"⚠️ Erro ao ler {uploaded_file.name}: {e}")
+          st.error(f"⚠️ Erro ao processar o arquivo {uploaded_file.name}: {e}")
 
-      if not dados:
-        st.warning(
-            "❌ Nenhum dado compatível foi extraído dos PDFs enviados."
-        )
+      if not lotes_orfas:
+        st.warning("❌ Nenhuma ORFA válida foi processada.")
       else:
-        # =========================================================================
-        # GERADOR 1: GERAR PLANILHA EXCEL EM MEMÓRIA (BYTESIO)
-        # =========================================================================
-        excel_buffer = io.BytesIO()
-        wb = openpyxl.Workbook()
+        st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
-        ws1 = wb.active
-        ws1.title = "Relatório Gerencial"
-        ws1.views.sheetView[0].showGridLines = True
+        # --- EXIBIÇÃO VISUAL DOS GRUPOS NA TELA ---
+        st.markdown("---")
+        for lote in lotes_orfas:
+          st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
+          st.markdown(f"**Cliente:** {lote['cliente']}")
 
-        NAVY = "1B365D"
-        HEADER_BLUE = "2C5282"
-        ACCENT_BLUE = "3182CE"
-        LIGHT_BLUE = "E8EEF5"
-        ZEBRA = "F7FAFC"
-        WHITE = "FFFFFF"
-        BORDER_COLOR = "CBD5E0"
+          # Cria tabela de exibição
+          df_exibicao = pd.DataFrame(lote['itens'])
+          df_exibicao.columns = ["Qtd", "Item/Modelo", "End.", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "GÁS", "ILUM."]
+          st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
+          st.markdown("---")
 
-        font_title = Font(name="Calibri", size=15, bold=True, color=WHITE)
-        font_header = Font(name="Calibri", size=10, bold=True, color=WHITE)
-        font_data = Font(name="Calibri", size=10)
-        font_total = Font(name="Calibri", size=10, bold=True, color=NAVY)
+        # --- GERAÇÃO DO EXCEL CONSOLIDADO EXECUTIVO ---
+        def gerar_excel_consolidado(lotes):
+          output_bytes = io.BytesIO()
+          wb = openpyxl.Workbook()
+          ws = wb.active
+          ws.title = "Consolidado ORFAs"
+          ws.views.sheetView[0].showGridLines = True
 
-        fill_title = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-        fill_header = PatternFill(start_color=HEADER_BLUE, end_color=HEADER_BLUE, fill_type="solid")
-        fill_cli = PatternFill(start_color=ACCENT_BLUE, end_color=ACCENT_BLUE, fill_type="solid")
-        fill_zebra = PatternFill(start_color=ZEBRA, end_color=ZEBRA, fill_type="solid")
-        fill_summary = PatternFill(start_color=LIGHT_BLUE, end_color=LIGHT_BLUE, fill_type="solid")
-        thin_border = Border(left=Side(style="thin", color=BORDER_COLOR), right=Side(style="thin", color=BORDER_COLOR),
-                             top=Side(style="thin", color=BORDER_COLOR), bottom=Side(style="thin", color=BORDER_COLOR))
+          NAVY = "1F497D"
+          WHITE = "FFFFFF"
+          HEADER_BG = "2C5282"
+          ZEBRA = "F7FAFC"
+          BORDER_COLOR = "CBD5E0"
 
-        ws1.merge_cells("A1:F1")
-        t_cell = ws1["A1"]
-        t_cell.value = "RELATÓRIO GERENCIAL DE ITENS EM ABERTO POR CLIENTE"
-        t_cell.font = font_title; t_cell.fill = fill_title
-        t_cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws1.row_dimensions[1].height = 30
+          font_title = Font(name="Calibri", size=13, bold=True, color=WHITE)
+          font_subtitle = Font(name="Calibri", size=10, bold=True, color=NAVY)
+          font_header = Font(name="Calibri", size=9, bold=True, color=WHITE)
+          font_body = Font(name="Calibri", size=9)
 
-        clientes_dict = {}
-        for item in dados:
-          cli = item["cliente"]
-          if cli not in clientes_dict:
-            clientes_dict[cli] = []
-          clientes_dict[cli].append(item)
+          fill_title = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
+          fill_header = PatternFill(start_color=HEADER_BG, end_color=HEADER_BG, fill_type="solid")
+          fill_sub = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+          fill_zebra = PatternFill(start_color=ZEBRA, end_color=ZEBRA, fill_type="solid")
+          thin_border = Border(left=Side(style='thin', color=BORDER_COLOR), right=Side(style='thin', color=BORDER_COLOR),
+                               top=Side(style='thin', color=BORDER_COLOR), bottom=Side(style='thin', color=BORDER_COLOR))
 
-        row = 3
-        for cli_nome, itens_cli in clientes_dict.items():
-          cidade = itens_cli[0]["cidade_uf"]
-          ws1.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-          c_cli = ws1.cell(row=row, column=1, value=f"CLIENTE: {cli_nome}  |  {cidade}")
-          c_cli.font = Font(name="Calibri", size=11, bold=True, color=WHITE)
-          c_cli.fill = fill_cli
-          c_cli.alignment = Alignment(horizontal="left", vertical="center", indent=1)
-          ws1.row_dimensions[row].height = 24
+          ws.merge_cells("A1:H1")
+          t1 = ws["A1"]
+          t1.value = f"RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS — Total de ORFAs: {len(lotes)}"
+          t1.font = font_title; t1.fill = fill_title; t1.alignment = Alignment(horizontal="center", vertical="center")
+          ws.row_dimensions[1].height = 25
 
-          row += 1
-          headers = ["Nº Pedido / ORFA", "Cód. Produto", "Descrição do Produto", "Data Pedido", "Prev. Entrega", "Qtd. A Separar"]
-          for c_idx, h in enumerate(headers, 1):
-            cell = ws1.cell(row=row, column=c_idx, value=h)
-            cell.font = font_header; cell.fill = fill_header
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border = thin_border
+          current_row = 3
+          for lote in lotes:
+            ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=8)
+            cab_cell = ws.cell(row=current_row, column=1, value=f"ORFA: {lote['orfa']}  |  Pedido: {lote['pedido']}  |  Entrega: {lote['entrega']}  |  Cliente: {lote['cliente']}")
+            cab_cell.font = font_subtitle; cab_cell.fill = fill_sub
+            cab_cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+            ws.row_dimensions[current_row].height = 22
+            current_row += 1
 
-          start_item = row + 1
-          row += 1
+            headers = ["Qtd", "Item/Modelo", "End.", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "GÁS", "ILUM."]
+            for c_idx, h in enumerate(headers, 1):
+              c = ws.cell(row=current_row, column=c_idx, value=h)
+              c.font = font_header; c.fill = fill_header
+              c.alignment = Alignment(horizontal="center", vertical="center")
+              c.border = thin_border
+            ws.row_dimensions[current_row].height = 20
+            current_row += 1
 
-          for idx, item in enumerate(itens_cli):
-            ws1.cell(row=row, column=1, value=item["pedido"]).alignment = Alignment(horizontal="center")
-            ws1.cell(row=row, column=2, value=item["cod_prod"]).alignment = Alignment(horizontal="center")
-            ws1.cell(row=row, column=3, value=item["descricao"]).alignment = Alignment(horizontal="left")
-            ws1.cell(row=row, column=4, value=item["data_venda"]).alignment = Alignment(horizontal="center")
-            ws1.cell(row=row, column=5, value=item["prev_entrega"]).alignment = Alignment(horizontal="center")
-            q = ws1.cell(row=row, column=6, value=item["quantidade"])
-            q.alignment = Alignment(horizontal="right"); q.number_format = '#,##0.00'
+            for idx, item in enumerate(lote['itens']):
+              vals = [item["qtd"], item["modelo"], item["end"], item["acb_tt_pnl"], item["carenagem"], item["acb_ext"], item["gas"], item["ilum"]]
+              for c_idx, val in enumerate(vals, 1):
+                c = ws.cell(row=current_row, column=c_idx, value=val)
+                c.font = font_body; c.border = thin_border
+                if c_idx in [1, 3, 7, 8]:
+                  c.alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                  c.alignment = Alignment(horizontal="left", vertical="center")
+                if idx % 2 == 1:
+                  c.fill = fill_zebra
+              ws.row_dimensions[current_row].height = 18
+              current_row += 1
 
-            for c in range(1, 7):
-              cell = ws1.cell(row=row, column=c)
-              cell.font = font_data; cell.border = thin_border
-              if idx % 2 == 1:
-                cell.fill = fill_zebra
-            row += 1
+            current_row += 15  # Espaço entre ORFAs
 
-          ws1.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
-          tot_label = ws1.cell(row=row, column=1, value=f"TOTAL DE ITENS ({cli_nome}):")
-          tot_label.font = font_total; tot_label.alignment = Alignment(horizontal="right", vertical="center")
-          tot_val = ws1.cell(row=row, column=6, value=f"=SUM(F{start_item}:F{row-1})")
-          tot_val.font = font_total; tot_val.alignment = Alignment(horizontal="right", vertical="center")
-          tot_val.number_format = '#,##0.00'
+          widths = {'A': 8, 'B': 25, 'C': 10, 'D': 18, 'E': 18, 'F': 18, 'G': 12, 'H': 12}
+          for col_letter, width in widths.items():
+            ws.column_dimensions[col_letter].width = width
 
-          for c in range(1, 7):
-            cell = ws1.cell(row=row, column=c)
-            cell.fill = fill_summary; cell.border = thin_border
-          row += 2
+          wb.save(output_bytes)
+          output_bytes.seek(0)
+          return output_bytes.getvalue()
 
-        widths = {'A': 22, 'B': 15, 'C': 48, 'D': 15, 'E': 15, 'F': 18}
-        for col_letter, width in widths.items():
-          ws1.column_dimensions[col_letter].width = width
-
-        # Aba 2 - Base
-        ws2 = wb.create_sheet(title="Itens Extraídos (Base)")
-        ws2.append(["Arquivo PDF", "Pedido / ORFA", "Data Venda", "Prev. Entrega", "Cliente", "Cidade/UF", "Frete", "Código Produto", "Descrição", "Qtd A Separar"])
-        for d in dados:
-          ws2.append([d["arquivo"], d["pedido"], d["data_venda"], d["prev_entrega"], d["cliente"], d["cidade_uf"], d["frete"], d["cod_prod"], d["descricao"], d["quantidade"]])
-
-        # Aba 3 - Resumo
-        ws3 = wb.create_sheet(title="Resumo Geral (Itens Totais)")
-        produtos_dict = {}
-        for item in dados:
-          chave = (item["cod_prod"], item["descricao"])
-          produtos_dict[chave] = produtos_dict.get(chave, 0.0) + item["quantidade"]
-
-        produtos_ordenados = sorted(produtos_dict.items(), key=lambda x: x[1], reverse=True)
-        total_geral_qtd = sum(produtos_dict.values())
-
-        ws3.merge_cells("A1:E1")
-        t_res = ws3["A1"]; t_res.value = "DASHBOARD RESUMO DE PRODUTOS UNIFICADOS EM ABERTO"
-        t_res.font = font_title; t_res.fill = fill_title; t_res.alignment = Alignment(horizontal="center", vertical="center")
-
-        headers_resumo = ["Cód. Produto", "Descrição do Produto", "Qtd. Total A Separar", "% do Volume Total", "Impacto Operacional"]
-        for col_idx, h in enumerate(headers_resumo, 1):
-          cell = ws3.cell(row=3, column=col_idx, value=h)
-          cell.font = font_header; cell.fill = fill_header
-          cell.alignment = Alignment(horizontal="center", vertical="center"); cell.border = thin_border
-
-        row_r = 4
-        for idx, ((cod_prod, desc), qtd_tot) in enumerate(produtos_ordenados):
-          perc = (qtd_tot / total_geral_qtd) if total_geral_qtd > 0 else 0
-          impacto = "Alta Prioridade" if perc >= 0.15 else ("Média Prioridade" if perc >= 0.05 else "Baixa Prioridade")
-
-          ws3.cell(row=row_r, column=1, value=cod_prod).alignment = Alignment(horizontal="center")
-          ws3.cell(row=row_r, column=2, value=desc).alignment = Alignment(horizontal="left")
-          ws3.cell(row=row_r, column=3, value=qtd_tot).number_format = '#,##0.00'
-          ws3.cell(row=row_r, column=4, value=perc).number_format = '0.00%'
-          ws3.cell(row=row_r, column=5, value=impacto).alignment = Alignment(horizontal="center")
-
-          for c in range(1, 6):
-            cell = ws3.cell(row=row_r, column=c)
-            cell.font = font_data; cell.border = thin_border
-            if idx % 2 == 1:
-              cell.fill = fill_zebra
-          row_r += 1
-
-        wb.save(excel_buffer)
-        excel_buffer.seek(0)
-
-        # =========================================================================
-        # GERADOR 2: GERAR PDF EXECUTIVO EM MEMÓRIA (BYTESIO)
-        # =========================================================================
-        pdf_buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            pdf_buffer,
-            pagesize=A4,
-            leftMargin=1.5 * cm, rightMargin=1.5 * cm,
-            topMargin=1.5 * cm, bottomMargin=1.5 * cm
-        )
-
-        styles = getSampleStyleSheet()
-        C_NAVY = colors.HexColor("#1B365D")
-        C_SLATE = colors.HexColor("#2C5282")
-        C_BLUE_ACCENT = colors.HexColor("#3182CE")
-        C_BG_LIGHT = colors.HexColor("#F7FAFC")
-        C_BORDER = colors.HexColor("#E2E8F0")
-
-        style_title = ParagraphStyle('DocTitle', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=18, textColor=colors.white, alignment=1)
-        style_subtitle = ParagraphStyle('DocSubTitle', parent=styles['Normal'], fontName='Helvetica', fontSize=10, textColor=colors.HexColor("#E2E8F0"), alignment=1)
-        style_sec_heading = ParagraphStyle('SecHeading', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=12, textColor=C_NAVY, spaceBefore=12, spaceAfter=6)
-        style_cell = ParagraphStyle('Cell', parent=styles['Normal'], fontName='Helvetica', fontSize=8, leading=10, textColor=colors.HexColor("#2D3748"))
-        style_cell_center = ParagraphStyle('CellC', parent=style_cell, alignment=1)
-        style_cell_right = ParagraphStyle('CellR', parent=style_cell, alignment=2)
-        style_cell_header = ParagraphStyle('CellH', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=8, leading=10, textColor=colors.white, alignment=1)
-
-        story = []
-
-        header_data = [
-            [Paragraph("RELATÓRIO EXECUTIVO DE PEDIDOS EM ABERTO", style_title)],
-            [Paragraph(f"Consolidado Operacional de Separação • Gerado em: {datetime.now().strftime('%d/%m/%Y às %H:%M')}", style_subtitle)]
-        ]
-        t_header = Table(header_data, colWidths=[18 * cm])
-        t_header.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), C_NAVY),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,0), 12),
-            ('BOTTOMPADDING', (0,-1), (-1,-1), 12),
-        ]))
-        story.append(t_header)
-        story.append(Spacer(1, 12))
-
-        total_clientes = len(clientes_dict)
-        total_pedidos = len(set(d['pedido'] for d in dados))
-
-        kpi_data = [
-            [
-                Paragraph(f"<b>CLIENTES PENDENTES</b><br/><font size=16 color='{C_NAVY}'><b>{total_clientes}</b></font>", style_cell_center),
-                Paragraph(f"<b>PEDIDOS EM ABERTO</b><br/><font size=16 color='{C_NAVY}'><b>{total_pedidos}</b></font>", style_cell_center),
-                Paragraph(f"<b>TOTAL DE PEÇAS A SEPARAR</b><br/><font size=16 color='{C_NAVY}'><b>{total_geral_qtd:,.0f}</b></font>", style_cell_center)
-            ]
-        ]
-        t_kpis = Table(kpi_data, colWidths=[6 * cm, 6 * cm, 6 * cm])
-        t_kpis.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), C_BG_LIGHT),
-            ('BOX', (0,0), (-1,-1), 1, C_BORDER),
-            ('INNERGRID', (0,0), (-1,-1), 0.5, C_BORDER),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ]))
-        story.append(t_kpis)
-        story.append(Spacer(1, 15))
-
-        story.append(Paragraph("1. RESUMO DE PRODUTOS UNIFICADOS (TOP IMPACTO)", style_sec_heading))
-        story.append(HRFlowable(width="100%", thickness=1.5, color=C_NAVY, spaceAfter=8))
-
-        r_headers = [Paragraph("Cód.", style_cell_header), Paragraph("Descrição do Produto", style_cell_header), Paragraph("Qtd. Total", style_cell_header), Paragraph("% Vol.", style_cell_header), Paragraph("Prioridade", style_cell_header)]
-        r_rows = [r_headers]
-
-        for (cod_p, desc), q_tot in produtos_ordenados:
-          p_pct = (q_tot / total_geral_qtd) if total_geral_qtd > 0 else 0
-          prio = "Alta" if p_pct >= 0.15 else ("Média" if p_pct >= 0.05 else "Baixa")
-          
-          r_rows.append([
-              Paragraph(cod_p, style_cell_center),
-              Paragraph(desc, style_cell),
-              Paragraph(f"{q_tot:,.2f}", style_cell_right),
-              Paragraph(f"{p_pct*100:.1f}%", style_cell_right),
-              Paragraph(f"<b>{prio}</b>", style_cell_center)
-          ])
-
-        t_resumo_pdf = Table(r_rows, colWidths=[2.2 * cm, 8.3 * cm, 2.5 * cm, 2 * cm, 3 * cm])
-        t_resumo_pdf.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), C_SLATE),
-            ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, C_BG_LIGHT]),
-            ('TOPPADDING', (0,0), (-1,-1), 4),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ]))
-        story.append(t_resumo_pdf)
-        story.append(Spacer(1, 15))
-
-        story.append(Paragraph("2. DETALHAMENTO DOS PEDIDOS EM ABERTO POR CLIENTE", style_sec_heading))
-        story.append(HRFlowable(width="100%", thickness=1.5, color=C_NAVY, spaceAfter=8))
-
-        for cli_nome, itens_cli in clientes_dict.items():
-          bloqueio_cliente = []
-          cidade = itens_cli[0]["cidade_uf"]
-
-          t_cli_bar = Table([[Paragraph(f"<b>CLIENTE: {cli_nome}</b>  ({cidade})", style_cell_header)]], colWidths=[18 * cm])
-          t_cli_bar.setStyle(TableStyle([
-              ('BACKGROUND', (0,0), (-1,-1), C_BLUE_ACCENT),
-              ('TOPPADDING', (0,0), (-1,-1), 5),
-              ('BOTTOMPADDING', (0,0), (-1,-1), 5),
-          ]))
-          bloqueio_cliente.append(t_cli_bar)
-
-          c_headers = [Paragraph("Pedido / ORFA", style_cell_header), Paragraph("Cód.", style_cell_header), Paragraph("Descrição Item", style_cell_header), Paragraph("Data", style_cell_header), Paragraph("Prev.", style_cell_header), Paragraph("Qtd.", style_cell_header)]
-          c_rows = [c_headers]
-
-          subtot = sum(i["quantidade"] for i in itens_cli)
-          for i in itens_cli:
-            c_rows.append([
-                Paragraph(i["pedido"], style_cell_center),
-                Paragraph(i["cod_prod"], style_cell_center),
-                Paragraph(i["descricao"], style_cell),
-                Paragraph(i["data_venda"], style_cell_center),
-                Paragraph(i["prev_entrega"], style_cell_center),
-                Paragraph(f"{i['quantidade']:,.2f}", style_cell_right)
-            ])
-
-          c_rows.append([
-              Paragraph("<b>TOTAL CLIENTE:</b>", style_cell_right), "", "", "", "",
-              Paragraph(f"<b>{subtot:,.2f}</b>", style_cell_right)
-          ])
-
-          t_cli_items = Table(c_rows, colWidths=[3.2 * cm, 2 * cm, 6.8 * cm, 2 * cm, 2 * cm, 2 * cm])
-          t_cli_items.setStyle(TableStyle([
-              ('BACKGROUND', (0,0), (-1,0), C_SLATE),
-              ('SPAN', (0, -1), (4, -1)),
-              ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor("#E2E8F0")),
-              ('GRID', (0,0), (-1,-1), 0.5, C_BORDER),
-              ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, C_BG_LIGHT]),
-              ('TOPPADDING', (0,0), (-1,-1), 4),
-              ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-          ]))
-          bloqueio_cliente.append(t_cli_items)
-          bloqueio_cliente.append(Spacer(1, 10))
-
-          story.append(KeepTogether(bloqueio_cliente))
-
-        def add_footer(canvas, doc):
-          canvas.saveState()
-          canvas.setFont('Helvetica', 8)
-          canvas.setFillColor(colors.HexColor("#718096"))
-          canvas.drawString(1.5 * cm, 1 * cm, "Relatório Gerencial de Separação - Uso Interno e Diretoria")
-          canvas.drawRightString(21 * cm - 1.5 * cm, 1 * cm, f"Página {doc.page}")
-          canvas.restoreState()
-
-        doc.build(story, onFirstPage=add_footer, onLaterPages=add_footer)
-        pdf_buffer.seek(0)
-
-        st.success("🎉 Relatórios gerados com sucesso a partir dos PDFs enviados!")
-
-        col_m1, col_m2, col_m3 = st.columns(3)
-        col_m1.metric("Clientes Pendentes", total_clientes)
-        col_m2.metric("Pedidos em Aberto", total_pedidos)
-        col_m3.metric("Total de Peças", f"{total_geral_qtd:,.0f}")
+        excel_data = gerar_excel_consolidado(lotes_orfas)
 
         st.write("---")
-
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-          st.download_button(
-              label="📥 Baixar Relatório Excel (.xlsx)",
-              data=excel_buffer,
-              file_name="Relatorio_Gerencial_Geral.xlsx",
-              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-              use_container_width=True,
-          )
-        with col_d2:
-          st.download_button(
-              label="📥 Baixar Relatório PDF Executivo (.pdf)",
-              data=pdf_buffer,
-              file_name="Relatorio_Executivo_Diretoria.pdf",
-              mime="application/pdf",
-              use_container_width=True,
-          )
+        st.download_button(
+            label="📥 Baixar Relatório Consolidado de ORFAs em Excel (.xlsx)",
+            data=excel_data,
+            file_name="Relatorio_Consolidado_ORFAS.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
