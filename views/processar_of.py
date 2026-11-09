@@ -127,11 +127,11 @@ if uploaded_files:
                             linha_clean = linha.strip()
                             linha_upper = linha_clean.upper()
                             
-                            # Ignora linhas que sejam divisórias ou acessórios internos avulsos
+                            # Ignora linhas de acessórios ou divisórias avulsas
                             if any(termo in linha_upper for termo in ["DIVISORI", "CANTONEIRA", "ESCANINHO"]):
                                 continue
 
-                            # Regex atualizada para aceitar letras, números, hífens, barras e o sinal de mais (+) em nomes compostos
+                            # Regex aprimorada para aceitar letras, números, hífens, barras e o sinal de mais (+)
                             m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-\/+]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha_clean)
                             
                             if m_item:
@@ -158,13 +158,16 @@ if uploaded_files:
                                 acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 
-                                # Captura robusta de iluminação buscando valores como 3000K, 4000K ou tags equivalentes no bloco
+                                # Captura inteligente de iluminação (procura 3000K ou 4000K no bloco do item)
                                 ilum = re.search(r"(?:[IÍií]?lumi?nação|[Ll]umi?nação|ilum\.?)[:\s]*([^\n|]+)", bloco, re.IGNORECASE)
-                                if not ilum:
-                                    ilum_alt = re.search(r"(\d{3,4}\s*K)", bloco, re.IGNORECASE)
-                                    val_ilu = ilum_alt.group(1).strip() if ilum_alt else "-"
+                                val_ilu = "-"
+                                if ilum and ilum.group(1).strip():
+                                    val_ilu = ilum.group(1).strip()
                                 else:
-                                    val_ilu = ilum.group(1).strip() if ilum.group(1).strip() else "-"
+                                    # Busca direta por padrões de temperatura de cor (3000K ou 4000K)
+                                    m_temp = re.search(r"(3000K|4000K)", bloco, re.IGNORECASE)
+                                    if m_temp:
+                                        val_ilu = m_temp.group(1).upper()
 
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "-"
                                 val_car = caren.group(1).strip() if caren else "-"
