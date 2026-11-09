@@ -57,15 +57,22 @@ if uploaded_files:
                         paginas_texto = [page.extract_text() or "" for page in pdf.pages]
                         texto_completo = "\n".join(paginas_texto)
 
-                    # --- EXTRAÇÃO ROBUSTA DE METADADOS DO CABEÇALHO DA ORFA ---
-                    orfa_m = re.search(r"N[º°]?\s*ORFA[:\s]*\n?([A-Za-z0-9\-/()]+)", texto_completo, re.IGNORECASE)
-                    ped_m = re.search(r"N[º°]?\s*PEDIDO[:\s]*\n?([A-Za-z0-9\-/]+(?:\s*Rev[:\s]*[A-Za-z0-9]*)?)", texto_completo, re.IGNORECASE)
-                    dt_entrega_m = re.search(r"DATA\s*ENTREGA[:\s]*\n?([\d/]+)", texto_completo, re.IGNORECASE)
+                    # --- EXTRAÇÃO DIRETA POR PADRÕES DE DADOS (Blindada contra quebras de tabela) ---
+                    # Procura padrão de ORFA (ex: 203/2026-(RP190483) ou 163/2026)
+                    orfa_m = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-\s*\([A-Za-z0-9\-/]+\)|\d{2,4}\s*/\s*\d{4})", texto_completo)
+                    
+                    # Procura padrão de Data de Entrega (dd/mm/aaaa)
+                    dt_entrega_m = re.search(r"(\d{2}/\d{2}/\d{4})", texto_completo)
+                    
+                    # Procura padrão de Pedido (ex: P260817021B)
+                    ped_m = re.search(r"(P\d{8,10}[A-Za-z0-9]*)", texto_completo)
+                    
+                    # Procura Cliente (ex: IRMAOS ANDREAZZA LTDA)
                     cli_m = re.search(r"CLIENTE[:\s]*\n?([^\n]+)", texto_completo, re.IGNORECASE)
 
                     num_orfa = orfa_m.group(1).strip() if orfa_m else uploaded_file.name.replace(".pdf", "")
-                    pedido = ped_m.group(1).strip() if ped_m else "N/A"
                     entrega = dt_entrega_m.group(1).strip() if dt_entrega_m else "-"
+                    pedido = ped_m.group(1).strip() if ped_m else "N/A"
                     cliente = cli_m.group(1).strip() if cli_m else "NÃO INFORMADO"
 
                     itens_orfa = []
