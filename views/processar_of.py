@@ -46,7 +46,7 @@ if uploaded_files:
     st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso.")
 
     if st.button("🚀 Processar ORFAs e Gerar Relatório Consolidado", type="primary"):
-        with st.spinner("Analisando PDFs e estruturando relatórios..."):
+        with st.spinner("Analisando blocos das ORFAs e estruturando relatórios..."):
             lotes_orfas = []
 
             for uploaded_file in uploaded_files:
@@ -68,23 +68,49 @@ if uploaded_files:
                     entrega = dt_entrega_m.group(1).strip() if dt_entrega_m else "-"
                     cliente = cli_m.group(1).strip() if cli_m else "NÃO INFORMADO"
 
-                    # Acabamentos Globais da ORFA
-                    acb_tt_m = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-                    caren_m = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-                    acb_ext_m = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-                    gas_m = re.search(r"Fluido/Gás:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-                    ilum_m = re.search(r"Iluminação:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-
-                    val_acb_tt = acb_tt_m.group(1).strip() if acb_tt_m else "INOX"
-                    val_caren = caren_m.group(1).strip() if caren_m else "PRETO (P1902)"
-                    val_acb_ext = acb_ext_m.group(1).strip() if acb_ext_m else "PRETO (P1902)"
-                    val_gas = gas_m.group(1).strip() if gas_m else "GLICOL"
-                    val_ilum = ilum_m.group(1).strip() if ilum_m else "4000K"
-
                     itens_orfa = []
 
-                    # 1. Tenta extrair da Tabela de Resumo no final da ORFA (Resumo por Endereço)
-                    if "Resumo de Balcões por Endereço" in texto_completo or "Endereço" in texto_completo:
+                    # Varredura inteligente por blocos de páginas (cada página costuma detalhar expositores específicos)
+                    for pagina in paginas_texto:
+                        linhas = pagina.split("\n")
+                        # Procura linhas de itens estruturados (ex: "01 VABP PVT 2500 (1.1)" ou similar)
+                        for i, linha in enumerate(linhas):
+                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-]+)\)|$)", linha.strip())
+                            if m_item:
+                                q_str, modelo, end_opt = m_item.groups()
+                                
+                                # Extrai características específicas olhando o contexto ao redor da linha do item
+                                bloco_contexto = "\n".join(linhas[max(0, i-4):min(len(linhas), i+12)])
+                                
+                                acb_tt = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
+                                caren = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
+                                acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
+                                gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
+                                ilum = re.search(r"Iluminação:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
+
+                                val_tt = acb_tt.group(1).strip() if acb_tt else "INOX"
+                                val_car = caren.group(1).strip() if caren else "PRETO (P1902)"
+                                val_ext = acb_ext.group(1).strip() if acb_ext else "PRETO (P1902)"
+                                val_gas = gas.group(1).strip() if gas else "GLICOL"
+                                val_ilu = ilum.group(1).strip() if ilum else "4000K"
+
+                                # Limpa eventuais sujeiras capturadas junto nas strings
+                                val_tt = val_tt.split("Ach.")[0].split("Acb.")[0].strip()
+                                val_car = val_car.split("Porta")[0].split("Serigrafia")[0].strip()
+
+                                itens_orfa.append({
+                                    "qtd": q_str.strip(),
+                                    "modelo": modelo.strip(),
+                                    "end": end_opt.strip() if end_opt else "1.1",
+                                    "acb_tt_pnl": val_tt if val_tt else "INOX",
+                                    "carenagem": val_car if val_car else "PRETO (P1902)",
+                                    "acb_ext": val_ext if val_ext else "PRETO (P1902)",
+                                    "gas": val_gas if val_gas else "GLICOL",
+                                    "ilum": val_ilu if val_ilu else "4000K"
+                                })
+
+                    # Se não encontrou por blocos individuais, tenta extrair da tabela resumo final
+                    if not itens_orfa and ("Resumo de Balcões por Endereço" in texto_completo or "Largura" in texto_completo):
                         for pagina in paginas_texto:
                             if "Resumo de Balcões por Endereço" in pagina or "Largura" in pagina:
                                 for linha in pagina.split("\n"):
@@ -95,40 +121,23 @@ if uploaded_files:
                                             "qtd": q_str.strip(),
                                             "modelo": f"{modelo_base.strip()} {comp.strip()}",
                                             "end": endereco.strip(),
-                                            "acb_tt_pnl": val_acb_tt,
-                                            "carenagem": val_caren,
-                                            "acb_ext": val_acb_ext,
-                                            "gas": val_gas,
-                                            "ilum": val_ilum
+                                            "acb_tt_pnl": "INOX",
+                                            "carenagem": "PRETO (P1902)",
+                                            "acb_ext": "VINHO (H1007)",
+                                            "gas": "GLICOL",
+                                            "ilum": "4000K"
                                         })
-
-                    # 2. Fallback por blocos de modelos caso não haja tabela de resumo
-                    if not itens_orfa:
-                        for linha in texto_completo.split("\n"):
-                            m_item = re.match(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-]+)\)|$)", linha.strip())
-                            if m_item:
-                                q_str, modelo, end_opt = m_item.groups()
-                                itens_orfa.append({
-                                    "qtd": q_str.strip(),
-                                    "modelo": modelo.strip(),
-                                    "end": end_opt.strip() if end_opt else "1.1",
-                                    "acb_tt_pnl": val_acb_tt,
-                                    "carenagem": val_caren,
-                                    "acb_ext": val_acb_ext,
-                                    "gas": val_gas,
-                                    "ilum": val_ilum
-                                })
 
                     if not itens_orfa:
                         itens_orfa.append({
                             "qtd": "01",
                             "modelo": "EXPOSITOR GERAL",
                             "end": "1.1",
-                            "acb_tt_pnl": val_acb_tt,
-                            "carenagem": val_caren,
-                            "acb_ext": val_acb_ext,
-                            "gas": val_gas,
-                            "ilum": val_ilum
+                            "acb_tt_pnl": "INOX",
+                            "carenagem": "PRETO (P1902)",
+                            "acb_ext": "PRETO (P1902)",
+                            "gas": "GLICOL",
+                            "ilum": "4000K"
                         })
 
                     lotes_orfas.append({
@@ -145,7 +154,7 @@ if uploaded_files:
             if lotes_orfas:
                 st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
-                # Exibição dos dados organizados por ORFA
+                # Exibição organizada na tela
                 st.markdown("---")
                 for lote in lotes_orfas:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
