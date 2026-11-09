@@ -46,7 +46,7 @@ if uploaded_files:
     st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso.")
 
     if st.button("🚀 Processar ORFAs e Gerar Relatório Consolidado", type="primary"):
-        with st.spinner("Analisando blocos das ORFAs e estruturando relatórios..."):
+        with st.spinner("Analisando PDFs e alocando endereços corretamente..."):
             lotes_orfas = []
 
             for uploaded_file in uploaded_files:
@@ -70,23 +70,38 @@ if uploaded_files:
 
                     itens_orfa = []
 
-                    # Varredura inteligente por blocos de páginas (cada página costuma detalhar expositores específicos)
+                    # Processamento por Páginas/Blocos da ORFA
                     for pagina in paginas_texto:
+                        # Ignora a página do resumo no final para não duplicar itens
+                        if "Resumo de Balcões por Endereço" in pagina:
+                            continue
+
                         linhas = pagina.split("\n")
-                        # Procura linhas de itens estruturados (ex: "01 VABP PVT 2500 (1.1)" ou similar)
                         for i, linha in enumerate(linhas):
-                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-]+)\)|$)", linha.strip())
+                            # Captura modelos com quantidade e o parênteses de endereço ex: "01 VABP PVT 2500 (1.1)"
+                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
+                            
                             if m_item:
-                                q_str, modelo, end_opt = m_item.groups()
+                                q_str, modelo_raw, end_opt = m_item.groups()
                                 
-                                # Extrai características específicas olhando o contexto ao redor da linha do item
-                                bloco_contexto = "\n".join(linhas[max(0, i-4):min(len(linhas), i+12)])
+                                # Se o endereço ficou dentro do modelo_raw, remove de lá
+                                modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
                                 
-                                acb_tt = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
-                                caren = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
-                                acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
-                                gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
-                                ilum = re.search(r"Iluminação:\s*([^\n|]+)", bloco_contexto, re.IGNORECASE)
+                                # Se não pegou no grupo 3 da Regex, procura por parênteses na própria linha
+                                if not end_opt:
+                                    end_match = re.search(r"\(([\d\.\-\s]+)\)", linha)
+                                    endereco = end_match.group(1).strip() if end_match else "1.1"
+                                else:
+                                    endereco = end_opt.strip()
+
+                                # Pega o contexto próximo ao redor deste item para extrair as cores reais
+                                bloco = "\n".join(linhas[max(0, i-6):min(len(linhas), i+12)])
+                                
+                                acb_tt = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", bloco, re.IGNORECASE)
+                                caren = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", bloco, re.IGNORECASE)
+                                acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
+                                gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
+                                ilum = re.search(r"Iluminação:\s*([^\n|]+)", bloco, re.IGNORECASE)
 
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "INOX"
                                 val_car = caren.group(1).strip() if caren else "PRETO (P1902)"
@@ -94,14 +109,15 @@ if uploaded_files:
                                 val_gas = gas.group(1).strip() if gas else "GLICOL"
                                 val_ilu = ilum.group(1).strip() if ilum else "4000K"
 
-                                # Limpa eventuais sujeiras capturadas junto nas strings
-                                val_tt = val_tt.split("Ach.")[0].split("Acb.")[0].strip()
-                                val_car = val_car.split("Porta")[0].split("Serigrafia")[0].strip()
+                                # Limpeza de fragmentos de outras colunas que possam ter vazado na leitura
+                                val_tt = re.split(r"Ach\.|Acb\.|Bojo", val_tt)[0].strip()
+                                val_car = re.split(r"Porta|Serigrafia", val_car)[0].strip()
+                                val_ext = re.split(r"Fluido|Gás|Porta", val_ext)[0].strip()
 
                                 itens_orfa.append({
                                     "qtd": q_str.strip(),
-                                    "modelo": modelo.strip(),
-                                    "end": end_opt.strip() if end_opt else "1.1",
+                                    "modelo": modelo_limpo,
+                                    "end": endereco,
                                     "acb_tt_pnl": val_tt if val_tt else "INOX",
                                     "carenagem": val_car if val_car else "PRETO (P1902)",
                                     "acb_ext": val_ext if val_ext else "PRETO (P1902)",
@@ -109,10 +125,10 @@ if uploaded_files:
                                     "ilum": val_ilu if val_ilu else "4000K"
                                 })
 
-                    # Se não encontrou por blocos individuais, tenta extrair da tabela resumo final
-                    if not itens_orfa and ("Resumo de Balcões por Endereço" in texto_completo or "Largura" in texto_completo):
+                    # Se a busca por blocos falhar completamente, usa a tabela de resumo como fallback
+                    if not itens_orfa and "Resumo de Balcões por Endereço" in texto_completo:
                         for pagina in paginas_texto:
-                            if "Resumo de Balcões por Endereço" in pagina or "Largura" in pagina:
+                            if "Resumo de Balcões por Endereço" in pagina:
                                 for linha in pagina.split("\n"):
                                     m_res = re.match(r"^(\d{2})\s+([A-Z0-9\s\+]+?)\s+(\d+)\s+(\d+)\s+([\d\.\-]+)", linha.strip())
                                     if m_res:
@@ -122,23 +138,11 @@ if uploaded_files:
                                             "modelo": f"{modelo_base.strip()} {comp.strip()}",
                                             "end": endereco.strip(),
                                             "acb_tt_pnl": "INOX",
-                                            "carenagem": "PRETO (P1902)",
+                                            "carenagem": "VINHO (H1007)",
                                             "acb_ext": "VINHO (H1007)",
                                             "gas": "GLICOL",
                                             "ilum": "4000K"
                                         })
-
-                    if not itens_orfa:
-                        itens_orfa.append({
-                            "qtd": "01",
-                            "modelo": "EXPOSITOR GERAL",
-                            "end": "1.1",
-                            "acb_tt_pnl": "INOX",
-                            "carenagem": "PRETO (P1902)",
-                            "acb_ext": "PRETO (P1902)",
-                            "gas": "GLICOL",
-                            "ilum": "4000K"
-                        })
 
                     lotes_orfas.append({
                         "orfa": num_orfa,
@@ -154,7 +158,7 @@ if uploaded_files:
             if lotes_orfas:
                 st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
-                # Exibição organizada na tela
+                # Exibição dos dados organizados por ORFA
                 st.markdown("---")
                 for lote in lotes_orfas:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
@@ -223,7 +227,7 @@ if uploaded_files:
                             curr_row += 1
                         curr_row += 1
 
-                    for col_letter, width in {'A': 6, 'B': 25, 'C': 12, 'D': 20, 'E': 20, 'F': 20, 'G': 12, 'H': 10}.items():
+                    for col_letter, width in {'A': 6, 'B': 25, 'C': 15, 'D': 20, 'E': 20, 'F': 20, 'G': 12, 'H': 10}.items():
                         ws.column_dimensions[col_letter].width = width
 
                     wb.save(out)
@@ -283,7 +287,7 @@ if uploaded_files:
                                 Paragraph(item["ilum"], style_cc),
                             ])
 
-                        t_table = Table(rows, colWidths=[1.2*cm, 5.5*cm, 2*cm, 5*cm, 5*cm, 5*cm, 2*cm, 2*cm])
+                        t_table = Table(rows, colWidths=[1.2*cm, 5.5*cm, 2.5*cm, 4.8*cm, 4.8*cm, 4.8*cm, 2*cm, 2*cm])
                         t_table.setStyle(TableStyle([
                             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2C5282")),
                             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
