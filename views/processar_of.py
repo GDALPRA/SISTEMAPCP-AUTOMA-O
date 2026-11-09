@@ -58,7 +58,7 @@ if uploaded_files:
                         texto_completo = "\n".join(paginas_texto)
                         linhas_todas = [l.strip() for p in paginas_texto for l in p.split("\n") if l.strip()]
 
-                    # --- EXTRAÇÃO PRECISA DE METADADOS DO CABEÇALHO ---
+                    # --- EXTRAÇÃO RIGOROSA DE METADADOS DO CABEÇALHO ---
                     num_orfa = ""
                     entrega = ""
                     pedido = ""
@@ -67,15 +67,17 @@ if uploaded_files:
                     for idx, linha in enumerate(linhas_todas[:35]):
                         linha_upper = linha.upper()
                         
-                        # Captura número da ORFA (procura a palavra ORFA e pega o valor na mesma linha ou na próxima)
-                        if "ORFA" in linha_upper:
-                            m_val = re.search(r"ORFA[:\s]*([A-Za-z0-9\-/()]+)", linha, re.IGNORECASE)
-                            if m_val and len(m_val.group(1).strip()) > 1:
-                                num_orfa = m_val.group(1).strip()
+                        # Captura número da ORFA (ex: 203/2026-(RP190483))
+                        if "ORFA" in linha_upper or "N°" in linha or "Nº" in linha:
+                            # Tenta pegar diretamente na linha atual caso contenha o formato numérico/barra
+                            m_orfa_direto = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\)|\d{2,4}\s*/\s*\d{4})", linha)
+                            if m_orfa_direto:
+                                num_orfa = m_orfa_direto.group(1).strip()
                             elif idx + 1 < len(linhas_todas):
                                 prox = linhas_todas[idx + 1]
-                                if "/" in prox:
-                                    num_orfa = prox.strip()
+                                m_orfa_prox = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\)|\d{2,4}\s*/\s*\d{4})", prox)
+                                if m_orfa_prox:
+                                    num_orfa = m_orfa_prox.group(1).strip()
 
                         # Captura Data de Entrega
                         if "DATA ENTREGA" in linha_upper or ("ENTREGA" in linha_upper and idx < 15):
@@ -107,9 +109,9 @@ if uploaded_files:
                             elif idx + 1 < len(linhas_todas):
                                 cliente = linhas_todas[idx + 1].strip()
 
-                    # Fallbacks refinados se necessário
+                    # Fallbacks gerais caso algum campo fique em branco
                     if not num_orfa:
-                        orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-\s*\([A-Za-z0-9\-/]+\))", texto_completo)
+                        orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\))", texto_completo)
                         num_orfa = orfa_fb.group(1).strip() if orfa_fb else uploaded_file.name.replace(".pdf", "")
                     
                     if not entrega:
