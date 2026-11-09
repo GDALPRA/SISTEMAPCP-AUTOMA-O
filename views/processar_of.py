@@ -127,11 +127,12 @@ if uploaded_files:
                             linha_clean = linha.strip()
                             linha_upper = linha_clean.upper()
                             
-                            # Filtro abrangente para ignorar divisórias e acessórios internos (singular e plural)
+                            # Ignora linhas que sejam divisórias ou acessórios internos avulsos
                             if any(termo in linha_upper for termo in ["DIVISORI", "CANTONEIRA", "ESCANINHO"]):
                                 continue
 
-                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha_clean)
+                            # Regex atualizada para aceitar letras, números, hífens, barras e o sinal de mais (+) em nomes compostos
+                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-\/+]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha_clean)
                             
                             if m_item:
                                 q_str, modelo_raw, end_opt = m_item.groups()
@@ -157,14 +158,18 @@ if uploaded_files:
                                 acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 
-                                # Captura robusta para iluminação (trata variações com ou sem a letra 'I' inicial)
+                                # Captura robusta de iluminação buscando valores como 3000K, 4000K ou tags equivalentes no bloco
                                 ilum = re.search(r"(?:[IÍií]?lumi?nação|[Ll]umi?nação|ilum\.?)[:\s]*([^\n|]+)", bloco, re.IGNORECASE)
+                                if not ilum:
+                                    ilum_alt = re.search(r"(\d{3,4}\s*K)", bloco, re.IGNORECASE)
+                                    val_ilu = ilum_alt.group(1).strip() if ilum_alt else "-"
+                                else:
+                                    val_ilu = ilum.group(1).strip() if ilum.group(1).strip() else "-"
 
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "-"
                                 val_car = caren.group(1).strip() if caren else "-"
                                 val_ext = acb_ext.group(1).strip() if acb_ext else "-"
                                 val_gas = gas.group(1).strip() if gas else "-"
-                                val_ilu = ilum.group(1).strip() if ilum else "-"
 
                                 val_tt = re.split(r"Ach\.|Acb\.|Bojo", val_tt)[0].strip()
                                 val_car = re.split(r"Porta|Serigrafia", val_car)[0].strip()
