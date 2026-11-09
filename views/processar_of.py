@@ -1,313 +1,182 @@
-from datetime import datetime
-import io
+mport os
+import glob
 import re
-import openpyxl
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-import pandas as pd
-
-# ReportLab para geração do PDF Executivo
+from pypdf import PdfReader
+from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm
-from reportlab.platypus import (
-    HRFlowable,
-    KeepTogether,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
-import streamlit as st
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from google.colab import files
 
-# --- CONFIGURAÇÃO E CABEÇALHO DA INTERFACE ---
-st.markdown(
-    """
-    <div style="background-color: #1F497D; color: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h2 style="margin: 0; font-weight: 700;">📋 RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS (ORFAS)</h2>
-        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Portal Corporativo de PCP & Engenharia - Processamento de ORFAs</p>
-    </div>
-""",
-    unsafe_allow_html=True,
-)
+def extrair_dados_orfa_pdf(caminho_pdf):
+    reader = PdfReader(caminho_pdf)
+    texto = ""
+    for page in reader.pages:
+        texto += page.extract_text() + "\n"
 
-st.write("")
+    # 1. Extração Ultra-Flexível de Metadados (Pula quebras de linha)
+    orfa_match = re.search(r'N[º°]?\s*ORFA:\s*\n?([^\n]+)', texto, re.IGNORECASE)
+    orfa_str = orfa_match.group(1).strip() if orfa_match else os.path.basename(caminho_pdf)
 
-# --- ÁREA DE UPLOAD ---
-uploaded_files = st.file_uploader(
-    "Arraste ou selecione os arquivos PDF das ORFAs de origem (.pdf)",
-    type=["pdf"],
-    accept_multiple_files=True,
-    key="pdf_uploader_orfas",
-)
+    cliente_match = re.search(r'CLIENTE:\s*\n?([^\n]+)', texto, re.IGNORECASE)
+    cliente_str = cliente_match.group(1).strip() if cliente_match else "NÃO INFORMADO"
 
-if uploaded_files:
-  st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso.")
+    pedido_match = re.search(r'N[º°]?\s*PEDIDO:\s*\n?([^\n]+)', texto, re.IGNORECASE)
+    pedido_str = pedido_match.group(1).strip() if pedido_match else "S/N"
 
-  if st.button("🚀 Processar ORFAs e Gerar Relatório Consolidado", type="primary"):
-    with st.spinner("Analisando PDFs e estruturando relatórios..."):
-      lotes_orfas = []
+    entrega_match = re.search(r'DATA\s*ENTREGA:\s*\n?([^\n]+)', texto, re.IGNORECASE)
+    entrega_str = entrega_match.group(1).strip() if entrega_match else "-"
 
-      for uploaded_file in uploaded_files:
-        try:
-          import pdfplumber
+    linhas = [l.strip() for l in texto.split("\n") if l.strip()]
+    equipamentos = []
 
-          with pdfplumber.open(uploaded_file) as pdf:
-            paginas_texto = [page.extract_text() or "" for page in pdf.pages]
-            texto_completo = "\n".join(paginas_texto)
+    # 2. Busca de Equipamentos Sem Rigidez Extrema
+    # Procura por padrões do tipo: QTD + NOME MODELO + ( ENDEREÇO )
+    padrao_item = re.compile(r'(\d{1,2})\s+([A-Z0-9\+\s\/]{2,30}?)\s*\(\s*([\d\.\s\-]+)\s*\)', re.IGNORECASE)
 
-          # Metadados do Cabeçalho da ORFA
-          orfa_m = re.search(r"N[º°]?\s*ORFA:\s*([A-Za-z0-9\-/]+(?:\([^)]+\))?)", texto_completo, re.IGNORECASE)
-          ped_m = re.search(r"N[º°]?\s*PEDIDO:\s*([A-Za-z0-9\-/]+)", texto_completo, re.IGNORECASE)
-          dt_entrega_m = re.search(r"DATA ENTREGA:\s*([\d/]+)", texto_completo, re.IGNORECASE)
-          cli_m = re.search(r"CLIENTE:\s*(.+)", texto_completo, re.IGNORECASE)
+    palavras_descartar = ["INTERMEDIARIA", "PRATELEIRAS", "CARENAGEM", "ANTEPARO", "RODAPE", "DIVISORIA", "RESFRIADOS", "HORTIFRUTI", "LATICINIOS", "CARNES"]
 
-          num_orfa = orfa_m.group(1).strip() if orfa_m else uploaded_file.name.replace(".pdf", "")
-          pedido = ped_m.group(1).strip() if ped_m else "N/A"
-          entrega = dt_entrega_m.group(1).strip() if dt_entrega_m else "-"
-          cliente = cli_m.group(1).strip() if cli_m else "NÃO INFORMADO"
+    for i, linha in enumerate(linhas):
+        match = padrao_item.search(linha)
 
-          # Acabamentos Globais da ORFA
-          acb_tt_m = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-          caren_m = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-          acb_ext_m = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-          gas_m = re.search(r"Fluido/Gás:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
-          ilum_m = re.search(r"Iluminação:\s*([^\n|]+)", texto_completo, re.IGNORECASE)
+        if match:
+            qtd = match.group(1).zfill(2)
+            modelo = match.group(2).strip()
+            end = match.group(3).strip()
 
-          val_acb_tt = acb_tt_m.group(1).strip() if acb_tt_m else "INOX"
-          val_caren = caren_m.group(1).strip() if caren_m else "PRETO (P1902)"
-          val_acb_ext = acb_ext_m.group(1).strip() if acb_ext_m else "PRETO (P1902)"
-          val_gas = gas_m.group(1).strip() if gas_m else "GLICOL"
-          val_ilum = ilum_m.group(1).strip() if ilum_m else "4000K"
+            # Descarta linhas de cabeçalho de categoria ou acessórios
+            if any(p in modelo.upper() for p in palavras_descartar) or len(modelo) < 3:
+                continue
 
-          itens_orfa = []
+            # Bloco de texto ao redor do item para pegar os acabamentos
+            bloco_contexto = " ".join(linhas[max(0, i-2):min(len(linhas), i+35)])
 
-          # 1. Tenta extrair da Tabela de Resumo no final da ORFA (Resumo por Endereço)
-          if "Resumo de Balcões por Endereço" in texto_completo or "Endereço" in texto_completo:
-            for pagina in paginas_texto:
-              if "Resumo de Balcões por Endereço" in pagina or "Largura" in pagina:
-                for linha in pagina.split("\n"):
-                  m_res = re.match(r"^(\d{2})\s+([A-Z0-9\s\+]+?)\s+(\d+)\s+(\d+)\s+([\d\.\-]+)", linha.strip())
-                  if m_res:
-                    q_str, modelo_base, larg, comp, endereco = m_res.groups()
-                    itens_orfa.append({
-                        "qtd": q_str.strip(),
-                        "modelo": f"{modelo_base.strip()} {comp.strip()}",
-                        "end": endereco.strip(),
-                        "acb_tt_pnl": val_acb_tt,
-                        "carenagem": val_caren,
-                        "acb_ext": val_acb_ext,
-                        "gas": val_gas,
-                        "ilum": val_ilum
-                    })
+            # Acabamento Testeira/Painel
+            tt_match = re.search(r'Acb\.\s*TT/PNL:\s*([^\n\t]+?)(?=Acb\.|Ach\.|Bojo|Grelha|Caren\.|Porta|Informações|Fluido|$)', bloco_contexto, re.IGNORECASE)
+            tt_pnl = tt_match.group(1).strip() if tt_match else "INOX"
 
-          # 2. Fallback por blocos de modelos caso não haja tabela de resumo
-          if not itens_orfa:
-            for linha in texto_completo.split("\n"):
-              m_item = re.match(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-]+)\)|$)", linha.strip())
-              if m_item:
-                q_str, modelo, end_opt = m_item.groups()
-                itens_orfa.append({
-                    "qtd": q_str.strip(),
-                    "modelo": modelo.strip(),
-                    "end": end_opt.strip() if end_opt else "1.1",
-                    "acb_tt_pnl": val_acb_tt,
-                    "carenagem": val_caren,
-                    "acb_ext": val_acb_ext,
-                    "gas": val_gas,
-                    "ilum": val_ilum
+            # Carenagem Frontal
+            caren_match = re.search(r'Caren\.\s*Frontal:\s*([^\n\t]+?)(?=Porta|Serigrafia|Testeira|Informações|Fluido|$)', bloco_contexto, re.IGNORECASE)
+            caren = caren_match.group(1).strip() if caren_match else "PRETO (P1902)"
+
+            # Acabamento Externo
+            ext_match = re.search(r'Acb\.\s*Externo:\s*([^\n\t]+?)(?=Bojo|Grelha|Perf\.|Caren\.|Porta|Informações|Fluido|$)', bloco_contexto, re.IGNORECASE)
+            ext = ext_match.group(1).strip() if ext_match else "PRETO (P1902)"
+
+            # Fluido / Gás (Ex: R22, GLICOL, R404)
+            gas_match = re.search(r'Fluido/Gás:\s*([^\n\t]+?)(?=Válvula|Micromotor|Cx\.|Evaporador|Acessórios|$)', bloco_contexto, re.IGNORECASE)
+            gas = gas_match.group(1).strip() if (gas_match and gas_match.group(1).strip()) else "GLICOL"
+
+            # Iluminação
+            ilum_match = re.search(r'Iluminação:\s*([^\n\t]+?)(?=Acessórios|PRATELEIRAS|ANTEPARO|Observações|$)', bloco_contexto, re.IGNORECASE)
+            ilum = ilum_match.group(1).strip() if (ilum_match and ilum_match.group(1).strip()) else "3000K"
+
+            # Evita duplicatas consecutivas idênticas
+            if not any(e['modelo'] == modelo and e['end'] == end for e in equipamentos):
+                equipamentos.append({
+                    'qtd': qtd,
+                    'modelo': modelo,
+                    'end': end,
+                    'tt_pnl': tt_pnl,
+                    'caren': caren,
+                    'ext': ext,
+                    'gas': gas,
+                    'ilum': ilum
                 })
 
-          if not itens_orfa:
-            itens_orfa.append({
-                "qtd": "01",
-                "modelo": "EXPOSITOR GERAL",
-                "end": "1.1",
-                "acb_tt_pnl": val_acb_tt,
-                "carenagem": val_caren,
-                "acb_ext": val_acb_ext,
-                "gas": val_gas,
-                "ilum": val_ilum
-            })
+    return {
+        'orfa': orfa_str,
+        'cliente': cliente_str,
+        'pedido': pedido_str,
+        'entrega': entrega_str,
+        'equipamentos': equipamentos
+    }
 
-          lotes_orfas.append({
-              "orfa": num_orfa,
-              "pedido": pedido,
-              "entrega": entrega,
-              "cliente": cliente,
-              "itens": itens_orfa
-          })
 
-        except Exception as e:
-          st.error(f"⚠️ Erro ao processar {uploaded_file.name}: {e}")
+def gerar_relatorio_consolidado(lista_orfas, nome_saida="RELATORIO_CONSOLIDADO_ORFAS.pdf"):
+    doc = SimpleDocTemplate(
+        nome_saida,
+        pagesize=A4,
+        rightMargin=15,
+        leftMargin=15,
+        topMargin=15,
+        bottomMargin=15
+    )
+    story = []
+    styles = getSampleStyleSheet()
 
-      if lotes_orfas:
-        st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
+    titulo_principal = ParagraphStyle('TP', parent=styles['Heading1'], fontSize=14, leading=16, textColor=colors.HexColor('#1A2B4C'), alignment=1)
+    sub_titulo = ParagraphStyle('ST', parent=styles['Normal'], fontSize=9, leading=11, textColor=colors.HexColor('#4A5568'), alignment=1)
+    orfa_header_style = ParagraphStyle('OH', parent=styles['Heading2'], fontSize=10, leading=13, textColor=colors.HexColor('#2B6CB0'), spaceBefore=6, spaceAfter=2)
+    info_style = ParagraphStyle('INF', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.HexColor('#2D3748'))
 
-        # Exibição dos dados organizados por ORFA
-        st.markdown("---")
-        for lote in lotes_orfas:
-          st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
-          st.markdown(f"**Cliente:** {lote['cliente']}")
+    cell_bold = ParagraphStyle('CB', fontSize=7.5, leading=9, fontName='Helvetica-Bold')
+    cell_norm = ParagraphStyle('CN', fontSize=7.5, leading=9, fontName='Helvetica')
+    cell_highlight = ParagraphStyle('CH', fontSize=7.5, leading=9, fontName='Helvetica-Bold', textColor=colors.HexColor('#C53030'))
+    cell_inox = ParagraphStyle('CI', fontSize=7.5, leading=9, fontName='Helvetica-Bold', textColor=colors.HexColor('#2B6CB0'))
 
-          df_exib = pd.DataFrame(lote['itens'])
-          df_exib.columns = ["Qtd", "Item/Modelo", "End.", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "GÁS", "ILUM."]
-          st.dataframe(df_exib, use_container_width=True, hide_index=True)
-          st.markdown("---")
+    story.append(Paragraph("<b>RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS</b>", titulo_principal))
+    story.append(Paragraph(f"Total de ORFAs no lote: <b>{len(lista_orfas)}</b>", sub_titulo))
+    story.append(Spacer(1, 8))
 
-        # --- GERAÇÃO DO EXCEL ---
-        def gerar_excel(lotes):
-          out = io.BytesIO()
-          wb = openpyxl.Workbook()
-          ws = wb.active
-          ws.title = "Consolidado ORFAs"
-          ws.views.sheetView[0].showGridLines = True
+    for idx, dados in enumerate(lista_orfas):
+        story.append(Paragraph(f"📌 <b>ORFA: {dados['orfa']}</b> | Pedido: {dados['pedido']} | Entrega: {dados['entrega']}", orfa_header_style))
+        story.append(Paragraph(f"<b>Cliente:</b> {dados['cliente']}", info_style))
+        story.append(Spacer(1, 4))
 
-          NAVY = "1F497D"
-          HEADER_BG = "2C5282"
-          SUB_BG = "E2E8F0"
-          ZEBRA = "F7FAFC"
-          BORDER_COLOR = "CBD5E0"
+        headers = ['Qtd', 'Item / Modelo', 'End.', '🚨 ACB. TT/PNL', '🚨 CAREN. FRONTAL', '🚨 ACB. EXTERNO', '❄️ GÁS', '💡 ILUM.']
+        table_data = [[Paragraph(f"<b>{h}</b>", cell_bold) for h in headers]]
 
-          f_title = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
-          f_sub = Font(name="Calibri", size=10, bold=True, color=NAVY)
-          f_head = Font(name="Calibri", size=9, bold=True, color="FFFFFF")
-          f_body = Font(name="Calibri", size=9)
+        if dados['equipamentos']:
+            for eq in dados['equipamentos']:
+                row = [
+                    Paragraph(eq['qtd'], cell_norm),
+                    Paragraph(eq['modelo'], cell_bold),
+                    Paragraph(eq['end'], cell_norm),
+                    Paragraph(f"<b>{eq['tt_pnl']}</b>", cell_highlight if "BRANCO" in eq['tt_pnl'].upper() else cell_inox),
+                    Paragraph(f"<b>{eq['caren']}</b>", cell_norm),
+                    Paragraph(f"<b>{eq['ext']}</b>", cell_norm),
+                    Paragraph(f"<b>{eq['gas']}</b>", cell_bold),
+                    Paragraph(f"<b>{eq['ilum']}</b>", cell_bold)
+                ]
+                table_data.append(row)
+        else:
+            table_data.append([
+                Paragraph("-", cell_norm),
+                Paragraph("Nenhum expositor identificado", cell_norm),
+                Paragraph("-", cell_norm), Paragraph("-", cell_norm), Paragraph("-", cell_norm),
+                Paragraph("-", cell_norm), Paragraph("-", cell_norm), Paragraph("-", cell_norm)
+            ])
 
-          fill_title = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-          fill_head = PatternFill(start_color=HEADER_BG, end_color=HEADER_BG, fill_type="solid")
-          fill_sub = PatternFill(start_color=SUB_BG, end_color=SUB_BG, fill_type="solid")
-          fill_zebra = PatternFill(start_color=ZEBRA, end_color=ZEBRA, fill_type="solid")
-          border = Border(left=Side(style='thin', color=BORDER_COLOR), right=Side(style='thin', color=BORDER_COLOR),
-                          top=Side(style='thin', color=BORDER_COLOR), bottom=Side(style='thin', color=BORDER_COLOR))
+        col_widths = [25, 125, 55, 80, 80, 80, 50, 45]
+        t = Table(table_data, colWidths=col_widths)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDF2F7')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 8))
 
-          ws.merge_cells("A1:H1")
-          t1 = ws["A1"]
-          t1.value = f"RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS — Total de ORFAs: {len(lotes)}"
-          t1.font = f_title; t1.fill = fill_title; t1.alignment = Alignment(horizontal="center", vertical="center")
-          ws.row_dimensions[1].height = 25
+    doc.build(story)
 
-          curr_row = 3
-          for lote in lotes:
-            ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=8)
-            c_sub = ws.cell(row=curr_row, column=1, value=f"ORFA: {lote['orfa']}  |  Pedido: {lote['pedido']}  |  Entrega: {lote['entrega']}  |  Cliente: {lote['cliente']}")
-            c_sub.font = f_sub; c_sub.fill = fill_sub; c_sub.alignment = Alignment(horizontal="left", vertical="center", indent=1)
-            ws.row_dimensions[curr_row].height = 20
-            curr_row += 1
+# --- EXECUÇÃO AUTOMÁTICA ---
+arquivos_pdf = glob.glob("*.pdf")
+arquivos_pdf = [f for f in arquivos_pdf if "RELATORIO_" not in f]
 
-            headers = ["Qtd", "Item/Modelo", "End.", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "GÁS", "ILUM."]
-            for c_idx, h in enumerate(headers, 1):
-              c = ws.cell(row=curr_row, column=c_idx, value=h)
-              c.font = f_head; c.fill = fill_head; c.alignment = Alignment(horizontal="center", vertical="center"); c.border = border
-            ws.row_dimensions[curr_row].height = 18
-            curr_row += 1
+if not arquivos_pdf:
+    print("❌ NENHUM ARQUIVO PDF ENCONTRADO NA PASTA LATERAL!")
+    print("👉 Arraste os arquivos PDF para a pasta lateral esquerda (ícone 📁) e aperte o Play ▶️ novamente.")
+else:
+    print(f"🔍 Processando {len(arquivos_pdf)} arquivo(s)...")
+    lista_orfas = [extrair_dados_orfa_pdf(f) for f in arquivos_pdf]
 
-            for idx, item in enumerate(lote['itens']):
-              vals = [item["qtd"], item["modelo"], item["end"], item["acb_tt_pnl"], item["carenagem"], item["acb_ext"], item["gas"], item["ilum"]]
-              for c_idx, val in enumerate(vals, 1):
-                c = ws.cell(row=curr_row, column=c_idx, value=val)
-                c.font = f_body; c.border = border
-                c.alignment = Alignment(horizontal="center" if c_idx in [1,3,7,8] else "left", vertical="center")
-                if idx % 2 == 1:
-                  c.fill = fill_zebra
-              curr_row += 1
-            curr_row += 1
+    nome_pdf = "RELATORIO_CONSOLIDADO_ORFAS.pdf"
+    gerar_relatorio_consolidado(lista_orfas, nome_pdf)
 
-          for col_letter, width in {'A': 6, 'B': 25, 'C': 12, 'D': 20, 'E': 20, 'F': 20, 'G': 12, 'H': 10}.items():
-            ws.column_dimensions[col_letter].width = width
-
-          wb.save(out)
-          out.seek(0)
-          return out.getvalue()
-
-        # --- GERAÇÃO DO PDF CONSOLIDADO ---
-        def gerar_pdf(lotes):
-          pdf_out = io.BytesIO()
-          doc = SimpleDocTemplate(pdf_out, pagesize=landscape(A4), leftMargin=1*cm, rightMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
-          styles = getSampleStyleSheet()
-          
-          style_title = ParagraphStyle('T', fontName='Helvetica-Bold', fontSize=13, textColor=colors.white, alignment=1)
-          style_sub = ParagraphStyle('S', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor("#1F497D"))
-          style_h = ParagraphStyle('H', fontName='Helvetica-Bold', fontSize=8, textColor=colors.white, alignment=1)
-          style_c = ParagraphStyle('C', fontName='Helvetica', fontSize=7, leading=9)
-          style_cc = ParagraphStyle('CC', fontName='Helvetica', fontSize=7, leading=9, alignment=1)
-
-          story = []
-          
-          # Banner do Título
-          t_top = Table([[Paragraph(f"RELATÓRIO CONSOLIDADO DE SEPARAÇÃO DE PEÇAS — Total de ORFAs: {len(lotes)}", style_title)]], colWidths=[27.7*cm])
-          t_top.setStyle(TableStyle([
-              ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#1F497D")),
-              ('TOPPADDING', (0,0), (-1,-1), 8),
-              ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-          ]))
-          story.append(t_top)
-          story.append(Spacer(1, 10))
-
-          for lote in lotes:
-            bloqueio = []
-            
-            # Subcabeçalho da ORFA
-            txt_lote = f"■ ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']} | Cliente: {lote['cliente']}"
-            t_lote = Table([[Paragraph(txt_lote, style_sub)]], colWidths=[27.7*cm])
-            t_lote.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#E2E8F0")),
-                ('TOPPADDING', (0,0), (-1,-1), 4),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-            ]))
-            bloqueio.append(t_lote)
-
-            # Tabela de Itens
-            rows = [[
-                Paragraph("Qtd", style_h), Paragraph("Item/Modelo", style_h), Paragraph("End.", style_h),
-                Paragraph("■ ACB. TT/PNL", style_h), Paragraph("■ CAREN. FRONTAL", style_h),
-                Paragraph("■ ACB. EXTERNO", style_h), Paragraph("GÁS", style_h), Paragraph("■ ILUM.", style_h)
-            ]]
-
-            for item in lote['itens']:
-              rows.append([
-                  Paragraph(item["qtd"], style_cc),
-                  Paragraph(item["modelo"], style_c),
-                  Paragraph(item["end"], style_cc),
-                  Paragraph(item["acb_tt_pnl"], style_c),
-                  Paragraph(item["carenagem"], style_c),
-                  Paragraph(item["acb_ext"], style_c),
-                  Paragraph(item["gas"], style_cc),
-                  Paragraph(item["ilum"], style_cc),
-              ])
-
-            t_table = Table(rows, colWidths=[1.2*cm, 5.5*cm, 2*cm, 5*cm, 5*cm, 5*cm, 2*cm, 2*cm])
-            t_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2C5282")),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-                ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
-                ('TOPPADDING', (0,0), (-1,-1), 3),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ]))
-            bloqueio.append(t_table)
-            bloqueio.append(Spacer(1, 10))
-
-            story.append(KeepTogether(bloqueio))
-
-          doc.build(story)
-          pdf_out.seek(0)
-          return pdf_out.getvalue()
-
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-          st.download_button(
-              label="📥 Baixar Relatório Consolidado em Excel (.xlsx)",
-              data=gerar_excel(lotes_orfas),
-              file_name="Relatorio_Consolidado_ORFAS.xlsx",
-              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-              use_container_width=True,
-          )
-        with col_d2:
-          st.download_button(
-              label="📥 Baixar Relatório Consolidado em PDF (.pdf)",
-              data=gerar_pdf(lotes_orfas),
-              file_name="Relatorio_Consolidado_ORFAS.pdf",
-              mime="application/pdf",
-              use_container_width=True,
-          )
+    print("✅ PDF Consolidado gerado com sucesso!")
+    print("⬇️ Baixando arquivo...")
+    files.download(nome_pdf)
