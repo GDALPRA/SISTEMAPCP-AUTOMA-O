@@ -67,10 +67,10 @@ if uploaded_files:
                     for idx, linha in enumerate(linhas_todas[:35]):
                         linha_upper = linha.upper()
                         
-                        # Captura número da ORFA (ex: 203/2026-(RP190483))
+                        # Captura número da ORFA (procura a palavra ORFA e pega o valor na mesma linha ou na próxima)
                         if "ORFA" in linha_upper:
                             m_val = re.search(r"ORFA[:\s]*([A-Za-z0-9\-/()]+)", linha, re.IGNORECASE)
-                            if m_val and len(m_val.group(1)) > 1:
+                            if m_val and len(m_val.group(1).strip()) > 1:
                                 num_orfa = m_val.group(1).strip()
                             elif idx + 1 < len(linhas_todas):
                                 prox = linhas_todas[idx + 1]
@@ -107,7 +107,7 @@ if uploaded_files:
                             elif idx + 1 < len(linhas_todas):
                                 cliente = linhas_todas[idx + 1].strip()
 
-                    # Fallbacks seguros caso encontre campos vazios
+                    # Fallbacks refinados se necessário
                     if not num_orfa:
                         orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-\s*\([A-Za-z0-9\-/]+\))", texto_completo)
                         num_orfa = orfa_fb.group(1).strip() if orfa_fb else uploaded_file.name.replace(".pdf", "")
