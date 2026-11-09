@@ -124,19 +124,28 @@ if uploaded_files:
 
                         linhas = pagina.split("\n")
                         for i, linha in enumerate(linhas):
-                            # Regex flexível que captura qualquer linha de item iniciada por 2 dígitos de quantidade
-                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
+                            linha_clean = linha.strip()
+                            
+                            # Filtro rigoroso: ignora linhas que sejam divisórias, acessórios avulsos ou rodapés
+                            if any(termo in linha_clean.upper() for termo in ["DIVISORIA", "DIVISÓRIA", "CANTONEIRA", "ESCANINHO"]):
+                                continue
+
+                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha_clean)
                             
                             if m_item:
                                 q_str, modelo_raw, end_opt = m_item.groups()
                                 
                                 modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
                                 
+                                # Ignora falsos positivos caso o modelo contenha termos de acessórios
+                                if any(termo in modelo_limpo.upper() for termo in ["DIVISORIA", "DIVISÓRIA", "CANTONEIRA"]):
+                                    continue
+
                                 endereco = "1.1"
                                 if end_opt and re.search(r"^\d+[\d\.\-\s]*$", end_opt.strip()):
                                     endereco = end_opt.strip()
                                 else:
-                                    end_match = re.search(r"\(([\d\.\-]+)\)", linha)
+                                    end_match = re.search(r"\(([\d\.\-]+)\)", linha_clean)
                                     if end_match:
                                         endereco = end_match.group(1).strip()
 
@@ -146,7 +155,9 @@ if uploaded_files:
                                 caren = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
-                                ilum = re.search(r"Iluminação:\s*([^\n|]+)", bloco, re.IGNORECASE)
+                                
+                                # Captura robusta para iluminação (trata variações como 'luminação', 'Ilum.', 'Iluminação')
+                                ilum = re.search(r"(?:Ilumi?nação|Ilum\.?)[:\s]*([^\n|]+)", bloco, re.IGNORECASE)
 
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "-"
                                 val_car = caren.group(1).strip() if caren else "-"
@@ -188,7 +199,6 @@ if uploaded_files:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
                     st.markdown(f"**Cliente:** {lote['cliente']}")
 
-                    # Proteção e definição explícita das colunas do DataFrame
                     df_exib = pd.DataFrame(
                         lote['itens'] if lote['itens'] else [{"qtd": "-", "modelo": "Nenhum item detectado", "end": "-", "acb_tt_pnl": "-", "carenagem": "-", "acb_ext": "-", "gas": "-", "ilum": "-"}],
                         columns=["qtd", "modelo", "end", "acb_tt_pnl", "carenagem", "acb_ext", "gas", "ilum"]
