@@ -46,9 +46,10 @@ if uploaded_files:
     st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso.")
 
     if st.button("🚀 Processar ORFAs e Gerar Relatório Consolidado", type="primary"):
-        with st.spinner("Analisando metadados e blocos das ORFAs..."):
+        with st.spinner("Analisando e isolando dados de cada ORFA..."):
             lotes_orfas = []
 
+            # Processa cada arquivo individualmente para garantir zero contaminação cruzada
             for uploaded_file in uploaded_files:
                 try:
                     import pdfplumber
@@ -58,18 +59,18 @@ if uploaded_files:
                         texto_completo = "\n".join(paginas_texto)
                         linhas_todas = [l.strip() for p in paginas_texto for l in p.split("\n") if l.strip()]
 
-                    # --- EXTRAÇÃO RIGOROSA DE METADADOS DO CABEÇALHO ---
+                    # --- VARIÁVEIS EXCLUSIVAS DESTE PDF ---
                     num_orfa = ""
                     entrega = ""
                     pedido = ""
                     cliente = "NÃO INFORMADO"
 
+                    # Varre as linhas do cabeçalho deste arquivo específico
                     for idx, linha in enumerate(linhas_todas[:35]):
                         linha_upper = linha.upper()
                         
-                        # Captura número da ORFA (ex: 203/2026-(RP190483))
+                        # Captura número da ORFA
                         if "ORFA" in linha_upper or "N°" in linha or "Nº" in linha:
-                            # Tenta pegar diretamente na linha atual caso contenha o formato numérico/barra
                             m_orfa_direto = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\)|\d{2,4}\s*/\s*\d{4})", linha)
                             if m_orfa_direto:
                                 num_orfa = m_orfa_direto.group(1).strip()
@@ -109,7 +110,7 @@ if uploaded_files:
                             elif idx + 1 < len(linhas_todas):
                                 cliente = linhas_todas[idx + 1].strip()
 
-                    # Fallbacks gerais caso algum campo fique em branco
+                    # Fallbacks seguros para este arquivo
                     if not num_orfa:
                         orfa_fb = re.search(r"(\d{2,4}\s*/\s*\d{4}\s*-?\s*\([A-Za-z0-9\-/]+\))", texto_completo)
                         num_orfa = orfa_fb.group(1).strip() if orfa_fb else uploaded_file.name.replace(".pdf", "")
@@ -124,25 +125,29 @@ if uploaded_files:
 
                     itens_orfa = []
 
-                    # Processamento por Páginas/Blocos da ORFA
+                    # Processamento dos itens e endereços deste PDF específico
                     for pagina in paginas_texto:
                         if "Resumo de Balcões por Endereço" in pagina:
                             continue
 
                         linhas = pagina.split("\n")
                         for i, linha in enumerate(linhas):
-                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU).*?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
+                            # Captura linha de item (ex: "01 VR2P 2500 (11.1)" ou "01 VABP PVT 2500 (1.1)")
+                            m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-/]+?(?:PVT|VAP|VAL|VAH|VRA|VRAG|VACP|VAHP|VIL|VCAG|ICFT|VRQU|IRAS|VR2P|VR2PA|VRPAS).*?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha.strip())
                             
                             if m_item:
                                 q_str, modelo_raw, end_opt = m_item.groups()
                                 
                                 modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
                                 
-                                if not end_opt:
-                                    end_match = re.search(r"\(([\d\.\-\s]+)\)", linha)
-                                    endereco = end_match.group(1).strip() if end_match else "1.1"
-                                else:
+                                # Extração rigorosa do endereço estritamente dentro do formato de parênteses (ex: 11.1, 1.2-1.3)
+                                endereco = "1.1"
+                                if end_opt and re.search(r"^\d+[\d\.\-\s]*$", end_opt.strip()):
                                     endereco = end_opt.strip()
+                                else:
+                                    end_match = re.search(r"\(([\d\.\-]+)\)", linha)
+                                    if end_match:
+                                        endereco = end_match.group(1).strip()
 
                                 bloco = "\n".join(linhas[max(0, i-6):min(len(linhas), i+12)])
                                 
@@ -173,6 +178,7 @@ if uploaded_files:
                                     "ilum": val_ilu if val_ilu else "4000K"
                                 })
 
+                    # Caso utilize fallback de tabela resumo se necessário
                     if not itens_orfa and "Resumo de Balcões por Endereço" in texto_completo:
                         for pagina in paginas_texto:
                             if "Resumo de Balcões por Endereço" in pagina:
