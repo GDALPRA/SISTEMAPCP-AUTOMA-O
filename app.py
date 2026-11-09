@@ -85,7 +85,7 @@ tubos_page = st.Page(
 
 portas_page = st.Page(
     "views/calculo_portas.py",
-    title="Portas & Frames (Vertical Alto)",
+    title="Portas & Frames (VA & VAP)",
     icon="🚪",
 )
 
@@ -95,11 +95,17 @@ chapas_page = st.Page(
     icon="📄",
 )
 
-# Módulo de Inox integrado corretamente na pasta views
 inox_page = st.Page(
     "views/calculo_inox.py",
     title="Chapas de Aço Inox (Expositores VA)",
     icon="🛡️",
+)
+
+# Nova automação integrada em views/processar_of.py
+gerencial_page = st.Page(
+    "views/processar_of.py",
+    title="Relatórios Gerenciais (PDFs)",
+    icon="📊",
 )
 
 # --- NAVEGAÇÃO CORPORATIVA ---
@@ -111,6 +117,7 @@ pg = st.navigation(
             portas_page,
             chapas_page,
             inox_page,
+            gerencial_page,
         ]
     }
 )
