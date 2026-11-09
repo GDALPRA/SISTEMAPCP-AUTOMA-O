@@ -46,7 +46,7 @@ if uploaded_files:
     st.info(f"📁 {len(uploaded_files)} arquivo(s) PDF carregado(s) com sucesso.")
 
     if st.button("🚀 Processar ORFAs e Gerar Relatório Consolidado", type="primary"):
-        with st.spinner("Analisando metadados das ORFAs e alocando endereços..."):
+        with st.spinner("Analisando metadados e blocos das ORFAs..."):
             lotes_orfas = []
 
             for uploaded_file in uploaded_files:
@@ -57,11 +57,12 @@ if uploaded_files:
                         paginas_texto = [page.extract_text() or "" for page in pdf.pages]
                         texto_completo = "\n".join(paginas_texto)
 
-                    # --- EXTRAÇÃO ROBUSTA DE METADADOS (Tratando variações com º, ° e quebras) ---
-                    orfa_m = re.search(r"N[º°]?\s*ORFA[:\s]*([A-Za-z0-9\-/()]+)", texto_completo, re.IGNORECASE)
-                    ped_m = re.search(r"N[º°]?\s*PEDIDO[:\s]*([A-Za-z0-9\-/]+(?:\s*Rev[:\s]*[A-Za-z0-9]*)?)", texto_completo, re.IGNORECASE)
-                    dt_entrega_m = re.search(r"DATA\s*ENTREGA[:\s]*([\d/]+)", texto_completo, re.IGNORECASE)
-                    cli_m = re.search(r"CLIENTE[:\s]*(.+)", texto_completo, re.IGNORECASE)
+                    # --- EXTRAÇÃO PRECISA DE METADADOS DO CABEÇALHO DA ORFA ---
+                    # Procura por "Nº ORFA:" ou "N° ORFA:" seguido do número na mesma linha ou na próxima
+                    orfa_m = re.search(r"N[º°]\s*ORFA[:\s]*\n?([A-Za-z0-9\-/()]+)", texto_completo, re.IGNORECASE)
+                    ped_m = re.search(r"N[º°]\s*PEDIDO[:\s]*\n?([A-Za-z0-9\-/]+)", texto_completo, re.IGNORECASE)
+                    dt_entrega_m = re.search(r"DATA\s*ENTREGA[:\s]*\n?([\d/]+)", texto_completo, re.IGNORECASE)
+                    cli_m = re.search(r"CLIENTE[:\s]*\n?([^\n]+)", texto_completo, re.IGNORECASE)
 
                     num_orfa = orfa_m.group(1).strip() if orfa_m else uploaded_file.name.replace(".pdf", "")
                     pedido = ped_m.group(1).strip() if ped_m else "N/A"
