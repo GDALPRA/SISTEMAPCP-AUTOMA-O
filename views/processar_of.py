@@ -57,10 +57,9 @@ if uploaded_files:
                         paginas_texto = [page.extract_text() or "" for page in pdf.pages]
                         texto_completo = "\n".join(paginas_texto)
 
-                    # --- EXTRAÇÃO PRECISA DE METADADOS DO CABEÇALHO DA ORFA ---
-                    # Procura por "Nº ORFA:" ou "N° ORFA:" seguido do número na mesma linha ou na próxima
-                    orfa_m = re.search(r"N[º°]\s*ORFA[:\s]*\n?([A-Za-z0-9\-/()]+)", texto_completo, re.IGNORECASE)
-                    ped_m = re.search(r"N[º°]\s*PEDIDO[:\s]*\n?([A-Za-z0-9\-/]+)", texto_completo, re.IGNORECASE)
+                    # --- EXTRAÇÃO ROBUSTA DE METADADOS DO CABEÇALHO DA ORFA ---
+                    orfa_m = re.search(r"N[º°]?\s*ORFA[:\s]*\n?([A-Za-z0-9\-/()]+)", texto_completo, re.IGNORECASE)
+                    ped_m = re.search(r"N[º°]?\s*PEDIDO[:\s]*\n?([A-Za-z0-9\-/]+(?:\s*Rev[:\s]*[A-Za-z0-9]*)?)", texto_completo, re.IGNORECASE)
                     dt_entrega_m = re.search(r"DATA\s*ENTREGA[:\s]*\n?([\d/]+)", texto_completo, re.IGNORECASE)
                     cli_m = re.search(r"CLIENTE[:\s]*\n?([^\n]+)", texto_completo, re.IGNORECASE)
 
@@ -71,7 +70,7 @@ if uploaded_files:
 
                     itens_orfa = []
 
-                    # Processamento por Páginas/Blocos da ORFA
+                    # Processamento por Páginas/Blocos da ORFA (evitando a página de resumo final para não duplicar)
                     for pagina in paginas_texto:
                         if "Resumo de Balcões por Endereço" in pagina:
                             continue
