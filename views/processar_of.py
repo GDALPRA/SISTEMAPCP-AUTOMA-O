@@ -117,6 +117,10 @@ if uploaded_files:
                         pedido = ped_fb.group(1).strip() if ped_fb else "N/A"
 
                     itens_orfa = []
+                    
+                    # Coleta todas as temperaturas de iluminação encontradas em todo o texto do PDF
+                    todas_iluminacoes = re.findall(r"(3000K|4000K)", texto_completo, re.IGNORECASE)
+                    ilum_idx = 0
 
                     for pagina in paginas_texto:
                         if "Resumo de Balcões por Endereço" in pagina:
@@ -127,11 +131,9 @@ if uploaded_files:
                             linha_clean = linha.strip()
                             linha_upper = linha_clean.upper()
                             
-                            # Ignora linhas de acessórios ou divisórias avulsas
                             if any(termo in linha_upper for termo in ["DIVISORI", "CANTONEIRA", "ESCANINHO"]):
                                 continue
 
-                            # Regex aprimorada para aceitar letras, números, hífens, barras e o sinal de mais (+)
                             m_item = re.search(r"^(\d{2})\s+([A-Z0-9\s\-\/+]+?)(?:\s*\(([\d\.\-\s]+)\)|$)", linha_clean)
                             
                             if m_item:
@@ -155,23 +157,18 @@ if uploaded_files:
                                 
                                 acb_tt = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 caren = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", bloco, re.IGNORECASE)
-                                acb_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
+                                acol_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 
-                                # Captura inteligente de iluminação (procura 3000K ou 4000K no bloco do item)
-                                ilum = re.search(r"(?:[IÍií]?lumi?nação|[Ll]umi?nação|ilum\.?)[:\s]*([^\n|]+)", bloco, re.IGNORECASE)
+                                # Atribui a iluminação sequencialmente se houver ocorrências disponíveis
                                 val_ilu = "-"
-                                if ilum and ilum.group(1).strip():
-                                    val_ilu = ilum.group(1).strip()
-                                else:
-                                    # Busca direta por padrões de temperatura de cor (3000K ou 4000K)
-                                    m_temp = re.search(r"(3000K|4000K)", bloco, re.IGNORECASE)
-                                    if m_temp:
-                                        val_ilu = m_temp.group(1).upper()
+                                if ilum_idx < len(todas_iluminacoes):
+                                    val_ilu = todas_iluminacoes[ilum_idx].upper()
+                                    ilum_idx += 1
 
                                 val_tt = acb_tt.group(1).strip() if acb_tt else "-"
                                 val_car = caren.group(1).strip() if caren else "-"
-                                val_ext = acb_ext.group(1).strip() if acb_ext else "-"
+                                val_ext = acol_ext.group(1).strip() if acol_ext else "-"
                                 val_gas = gas.group(1).strip() if gas else "-"
 
                                 val_tt = re.split(r"Ach\.|Acb\.|Bojo", val_tt)[0].strip()
@@ -186,7 +183,7 @@ if uploaded_files:
                                     "carenagem": val_car if val_car else "-",
                                     "acb_ext": val_ext if val_ext else "-",
                                     "gas": val_gas if val_gas else "-",
-                                    "ilum": val_ilu if val_ilu else "-"
+                                    "ilum": val_ilu
                                 })
 
                     lotes_orfas.append({
