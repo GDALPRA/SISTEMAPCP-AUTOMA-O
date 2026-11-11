@@ -2,79 +2,104 @@ import streamlit as st
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="NSF Tecnologia | Portal PCP & Engenharia",
+    page_title="NSF Tecnologia | Portal PCP Enterprise",
     page_icon="🕊️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --- CSS GLOBAL COM A NOVA IDENTIDADE VISUAL NSF ENTERPRISE UI ---
+# --- CSS GLOBAL EXECUTIVO SLIM (OVERRIDE TOTAL DE TEMA) ---
 st.markdown(
     """
     <style>
-        /* Fundo principal e tipografia */
-        .main {
-            background-color: #F8FAFC;
-            font-family: 'Inter', 'Segoe UI', sans-serif;
-        }
-        
-        /* Sidebar executiva com a cor de marca NSF (Deep Royal Navy) */
-        [data-testid="stSidebar"] {
-            background-color: #0A2540 !important;
-            border-right: 1px solid #1E3A8A;
-        }
-        
-        /* Cor de textos no Menu Lateral */
-        [data-testid="stSidebar"] .stMarkdown h1, 
-        [data-testid="stSidebar"] .stMarkdown h2, 
-        [data-testid="stSidebar"] .stMarkdown h3,
-        [data-testid="stSidebar"] span,
-        [data-testid="stSidebar"] p {
-            color: #F8FAFC !important;
-        }
-        
-        /* Estilização da seleção de navegadores (Radio e st.Page Navigation) */
-        [data-testid="stSidebar"] div[role="radiogroup"] > label {
-            background-color: transparent;
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin-bottom: 4px;
-            transition: all 0.2s ease;
-        }
-        
-        [data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
-            background-color: rgba(255, 255, 255, 0.08);
-        }
-        
-        /* Cartões de Métricas Executivas */
-        div[data-testid="metric-container"] {
-            background-color: #FFFFFF;
-            border: 1px solid #E2E8F0;
-            border-left: 4px solid #0052CC;
-            padding: 18px 22px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-        }
-        
-        /* Botão Primário e de Download com padrão NSF */
-        .stDownloadButton button, .stButton button[kind="primary"] {
-            background: linear-gradient(135deg, #0052CC 0%, #0A2540 100%) !important;
-            color: white !important;
-            font-weight: 600;
-            border-radius: 6px;
-            border: none;
-            padding: 10px 24px;
-            box-shadow: 0 2px 4px rgba(0, 82, 204, 0.25);
-            transition: all 0.3s ease;
-        }
-        
-        .stDownloadButton button:hover, .stButton button[kind="primary"]:hover {
-            background: linear-gradient(135deg, #003D99 0%, #061729 100%) !important;
-            box-shadow: 0 4px 8px rgba(0, 82, 204, 0.4);
-            transform: translateY(-1px);
+        /* 1. FORÇAR COR DE FUNDO DA ÁREA DE TRABALHO (SLIM OFF-WHITE) */
+        html, body, [data-testid="stAppViewContainer"], .main {
+            background-color: #F8FAFC !important;
+            color: #0F172A !important;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         }
 
-        /* Ocultar elementos padrão da interface Streamlit */
+        /* 2. SIDEBAR EXECUTIVA SLIM (DARK NAVY NSF) */
+        [data-testid="stSidebar"] {
+            background-color: #0F172A !important;
+            border-right: 1px solid #1E293B !important;
+        }
+
+        [data-testid="stSidebar"] * {
+            color: #94A3B8 !important;
+        }
+
+        /* Título dos Grupos na Sidebar */
+        [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p strong,
+        [data-testid="stSidebar"] span[data-testid="stHeader"] {
+            color: #64748B !important;
+            font-size: 11px !important;
+            letter-spacing: 1.2px !important;
+            text-transform: uppercase !important;
+        }
+
+        /* 3. ESTILIZAÇÃO DAS ABAS DE NAVEGAÇÃO (SLIM & MODERNO) */
+        [data-testid="stSidebar"] div[role="radiogroup"] > label,
+        [data-testid="stSidebarNav"] li a {
+            border-radius: 6px !important;
+            padding: 8px 12px !important;
+            margin-bottom: 2px !important;
+            transition: all 0.15s ease-in-out !important;
+        }
+
+        [data-testid="stSidebar"] div[role="radiogroup"] > label:hover,
+        [data-testid="stSidebarNav"] li a:hover {
+            background-color: #1E293B !important;
+        }
+
+        /* Item Selecionado na Sidebar */
+        [data-testid="stSidebarNav"] li a[aria-current="page"],
+        [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {
+            background-color: #1E293B !important;
+            border-left: 3px solid #0052CC !important;
+        }
+
+        [data-testid="stSidebarNav"] li a[aria-current="page"] span,
+        [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] span {
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+        }
+
+        /* 4. CABEÇALHO SLIM (SEM CAIXAS AZUIS GIGANTES) */
+        .stHeader, header[data-testid="stHeader"] {
+            background-color: transparent !important;
+        }
+
+        /* Cartões de Entrada / Drag & Drop Slim */
+        [data-testid="stFileUploader"] {
+            background-color: #FFFFFF !important;
+            border: 1px dashed #CBD5E1 !important;
+            border-radius: 8px !important;
+            padding: 10px !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
+        }
+
+        [data-testid="stFileUploader"] section {
+            background-color: #FFFFFF !important;
+        }
+
+        /* Botões Slim e Executivos */
+        .stDownloadButton button, .stButton button[kind="primary"] {
+            background-color: #0052CC !important;
+            color: #FFFFFF !important;
+            font-weight: 500 !important;
+            font-size: 13px !important;
+            border-radius: 6px !important;
+            border: none !important;
+            padding: 8px 18px !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        .stDownloadButton button:hover, .stButton button[kind="primary"]:hover {
+            background-color: #0041A3 !important;
+        }
+
+        /* Ocultar elementos desnecessários da barra superior */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
     </style>
@@ -82,40 +107,43 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR EXECUTIVA DA NSF TECNOLOGIA ---
+# --- SIDEBAR COM O LOGO OFICIAL VETORIZADO NSF ---
 with st.sidebar:
-    # Logotipo vetorial da NSF com o símbolo da pomba estilizada e tipografia oficial
+    # Logo oficial vetorizado fiel ao manual de marca NSF (Pássaro estilizado + Tipografia)
     st.markdown(
         """
-        <div style="text-align: center; padding: 15px 0 10px 0;">
-            <svg width="180" height="50" viewBox="0 0 350 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Asa Azul da Pomba NSF -->
-                <path d="M 20 20 Q 90 0, 110 50 Q 70 45, 20 20 Z" fill="#0052CC"/>
-                <!-- Asa Verde da Pomba NSF -->
-                <path d="M 110 50 Q 115 15, 125 10 Q 115 70, 75 75 Q 95 65, 110 50 Z" fill="#70C04B"/>
-                <!-- Corpo Amarelo/Laranja NSF -->
-                <path d="M 20 60 Q 60 90, 125 45 Q 80 50, 20 60 Z" fill="#FFC700"/>
-                <!-- Texto NSF -->
-                <text x="145" y="65" font-family="'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="64" fill="#FFFFFF" letter-spacing="2">NSF</text>
+        <div style="text-align: center; padding: 20px 0 15px 0;">
+            <svg width="190" height="60" viewBox="0 0 280 85" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Asa Superior Azul NSF -->
+                <path d="M 25 22 C 45 8, 85 10, 108 36 C 82 32, 50 30, 25 22 Z" fill="#0052CC"/>
+                <!-- Asa Verde Natureza NSF -->
+                <path d="M 108 36 C 118 18, 122 12, 128 8 C 118 55, 78 68, 55 64 C 80 58, 98 48, 108 36 Z" fill="#70C04B"/>
+                <!-- Base Laranja / Amarela NSF -->
+                <path d="M 20 54 C 42 74, 75 70, 110 40 C 72 48, 40 50, 20 54 Z" fill="#FF8A00"/>
+                <path d="M 20 54 C 32 66, 52 68, 75 62 C 50 60, 32 58, 20 54 Z" fill="#FFC700"/>
+                <!-- Tipografia NSF -->
+                <text x="140" y="58" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="56" fill="#FFFFFF" letter-spacing="1.5">NSF</text>
             </svg>
-            <p style="color: #70C04B; font-size: 11px; font-weight: 700; margin: 4px 0 0 0; letter-spacing: 1.5px; text-transform: uppercase;">
-                Tecnologia em Instalações Comerciais
-            </p>
-            <p style="color: #94A3B8; font-size: 10px; margin: 2px 0 0 0;">
-                Desenvolvendo o varejo, transformando vidas.
-            </p>
+            <div style="margin-top: 6px;">
+                <p style="color: #FFFFFF !important; font-size: 11px; font-weight: 700; margin: 0; letter-spacing: 0.8px; text-transform: uppercase;">
+                    TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
+                </p>
+                <p style="color: #64748B !important; font-size: 10px; margin: 3px 0 0 0;">
+                    Desenvolvendo o varejo, transformando vidas.
+                </p>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    st.markdown("---")
+    st.markdown("<hr style='border-color: #1E293B; margin: 10px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        "<p style='color: #70C04B; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;'>Módulos de Engenharia & PCP</p>",
+        "<p style='color: #64748B !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Módulos Operacionais</p>",
         unsafe_allow_html=True,
     )
 
-# --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA COM ÍCONES EXECUTIVOS ---
+# --- CONFIGURAÇÃO DAS PÁGINAS COM ÍCONES SLIM (MATERIAL DESIGN) ---
 bandejas_page = st.Page(
     "views/bandejas_pead.py",
     title="Bandejas ABS & PEAD",
@@ -153,7 +181,7 @@ gerencial_page = st.Page(
     icon=":material/analytics:",
 )
 
-# --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
+# --- ESTRUTURA DE NAVEGAÇÃO DA PLATAFORMA ---
 pg = st.navigation(
     {
         "PLANEJAMENTO E CONTROLE (PCP)": [
@@ -167,18 +195,18 @@ pg = st.navigation(
     }
 )
 
-# Rodapé institucional na barra lateral
+# Rodapé minimalista na barra lateral
 with st.sidebar:
-    st.markdown("---")
+    st.markdown("<hr style='border-color: #1E293B; margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
     st.markdown(
         """
-        <div style="text-align: center; color: #64748B; font-size: 11px;">
-            <p style="margin: 0; font-weight: 600; color: #94A3B8;">NSF Platform v4.0 Enterprise</p>
-            <p style="margin: 3px 0 0 0; font-size: 10px;">Ambiente Integrado de Fábrica</p>
+        <div style="text-align: center; color: #475569 !important; font-size: 10px;">
+            <p style="margin: 0; font-weight: 600; color: #64748B !important;">NSF Enterprise v4.0</p>
+            <p style="margin: 2px 0 0 0;">Ambiente Integrado de Fábrica</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# Executa o roteamento das páginas
+# Executa o roteador do Streamlit
 pg.run()
