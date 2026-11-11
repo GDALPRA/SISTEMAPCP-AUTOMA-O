@@ -8,11 +8,15 @@ import streamlit as st
 # --- ESTILIZAÇÃO DO CABEÇALHO DA PÁGINA ---
 st.markdown(
     """
-    <div style="background-color: #1F497D; color: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h2 style="margin: 0; font-weight: 700;">🚪 CÁLCULO DE PORTAS, FRAMES & EXPOSITORES ABERTOS</h2>
-        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Painel de Engenharia & PCP - Relatório Gerencial Executivo</p>
+    <div style="margin-bottom: 25px;">
+        <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+            🚪 CÁLCULO DE PORTAS, FRAMES & EXPOSITORES ABERTOS
+        </h2>
+        <p style="margin: 6px 0 0 0; color: #94A3B8; font-size: 14px;">
+            Painel de Engenharia & PCP — Relatório Gerencial Executivo
+        </p>
     </div>
-""",
+    """,
     unsafe_allow_html=True,
 )
 
