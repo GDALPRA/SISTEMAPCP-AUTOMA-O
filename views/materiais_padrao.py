@@ -116,7 +116,7 @@ with col_cfg1:
     solicitante_nome = st.text_input("👤 Nome do Solicitante:", value="Gabriel Dalpra")
 
 with col_cfg2:
-    setores_disponiveis = ["PCP", "Engenharia", "Produção", "Montagem", "Qualidade", "Manutenção"]
+    setores_disponiveis = ["PCP", "Engenharia", "Produção", "Montagem", "Qualidade", "Manutenção", "Compras"]
     setor_destino = st.selectbox("🏢 Setor de Destino:", setores_disponiveis)
 
 st.markdown("---")
