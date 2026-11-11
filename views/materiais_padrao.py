@@ -1,6 +1,6 @@
 from datetime import datetime
 import io
-import re
+import math
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import pandas as pd
@@ -29,14 +29,14 @@ st.markdown(
             📦 MATERIAIS PADRÃO — REFRIGERAÇÃO
         </h2>
         <p style="margin: 4px 0 0 0; color: #94A3B8; font-size: 13px;">
-            Banco de Insumos, Cálculo de Pesos por Blank & Solicitação de Compras
+            Banco de Insumos, Cálculo de Pesos por Blank, Conversão de Metros para Perfis & Solicitação de Compras
         </p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-# --- BASE DE DADOS DOS MATERIAIS PADRÃO (EXTRAÍDA DO CATÁLOGO) ---
+# --- BASE DE DADOS DOS MATERIAIS PADRÃO ---
 @st.cache_data
 def carregar_base_materiais():
     return [
@@ -92,51 +92,50 @@ def carregar_base_materiais():
 
 materiais = carregar_base_materiais()
 
-# Função matemática para calcular o peso unitário da chapa/tubo com base no blank
+# Função matemática para calcular o peso unitário
 def calcular_peso_unitario(mat):
     esp = mat["esp"]
     larg_m = mat["larg"] / 1000.0
     comp_m = mat["comp"] / 1000.0
     dens = mat["dens"]
     
-    if "TUBO" in mat["nome"].upper() or mat["tipo"] == "Perfis de Inox":
-        # Estimativa de perfil linear em barras de 6m
-        peso_metro = esp * larg_m * dens * 0.05 # aproximação para tubos estruturais
+    is_tubular = "TUBO" in mat["nome"].upper() or mat["tipo"] == "Perfis de Inox"
+    if is_tubular:
+        peso_metro = esp * (larg_m) * dens * 0.1 # peso linear estimado para tubos e perfis
         return round(peso_metro * (mat["comp"] / 1000.0), 2)
     else:
-        # Fórmula padrão de chapa: Espessura (mm) x Largura (m) x Comprimento (m) x Densidade (7.85)
         peso = esp * larg_m * comp_m * dens
         return round(peso, 2)
 
-# Adiciona o peso unitário calculado a cada item
 for m in materiais:
     m["peso_unit"] = calcular_peso_unitario(m)
+    m["is_tubular"] = "TUBO" in m["nome"].upper() or m["tipo"] == "Perfis de Inox"
 
 # --- INTERFACE DE SELEÇÃO E QUANTIFICAÇÃO ---
-st.markdown("<p style='color: #94A3B8; font-size: 13px;'>Selecione os materiais abaixo, defina a quantidade por <b>Peças (Unidades)</b> ou diretamente em <b>Quilogramas (Kg)</b> e gere a solicitação de compras.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #94A3B8; font-size: 13px;'>Selecione os materiais, defina a quantidade por <b>Peças</b>, <b>Quilogramas (Kg)</b> ou <b>Metros (m)</b> (exclusivo para perfis tubulares) e gere a solicitação.</p>", unsafe_allow_html=True)
 
-# Filtro por categoria
 categorias = ["Todas"] + list(set([m["tipo"] for m in materiais]))
 cat_selecionada = st.selectbox("Filtrar por Categoria de Insumo:", categorias)
 
 materiais_filtrados = [m for m in materiais if cat_selecionada == "Todas" or m["tipo"] == cat_selecionada]
 
-# Tabela interativa de seleção
 st.markdown("---")
 solicitacao_itens = []
 
 for idx, mat in enumerate(materiais_filtrados):
-    cols = st.columns([1.2, 4.5, 1.8, 1.8, 2.2])
+    cols = st.columns([1.2, 4.2, 1.8, 2.0, 2.2])
     
     with cols[0]:
         st.markdown(f"<p style='color: #38BDF8; font-weight:600; font-size:12px; margin-top:8px;'>#{mat['cod']}</p>", unsafe_allow_html=True)
     with cols[1]:
         st.markdown(f"<p style='color: #E2E8F0; font-size:12px; margin-top:8px;'>{mat['nome']}</p>", unsafe_allow_html=True)
     with cols[2]:
-        st.markdown(f"<p style='color: #94A3B8; font-size:12px; margin-top:8px;'>{mat['peso_unit']} kg/un</p>", unsafe_allow_html=True)
+        peso_exib = f"{mat['peso_unit']} kg/un" if not mat['is_tubular'] else f"~{round(mat['peso_unit']/6.0, 2)} kg/m"
+        st.markdown(f"<p style='color: #94A3B8; font-size:12px; margin-top:8px;'>{peso_exib}</p>", unsafe_allow_html=True)
     with cols[3]:
-        # Opção de selecionar modo de entrada: Peças ou Kgs
-        modo = st.selectbox("Modo", ["Pcs", "Kg"], key=f"modo_{mat['cod']}_{idx}", label_visibility="collapsed")
+        # Se for tubular, inclui a opção Metros (m)
+        opcoes_modo = ["Pcs", "Kg", "Metros (m)"] if mat["is_tubular"] else ["Pcs", "Kg"]
+        modo = st.selectbox("Modo", opcoes_modo, key=f"modo_{mat['cod']}_{idx}", label_visibility="collapsed")
     with cols[4]:
         val = st.number_input("Qtd", min_value=0.0, step=1.0, key=f"val_{mat['cod']}_{idx}", label_visibility="collapsed")
         
@@ -144,16 +143,23 @@ for idx, mat in enumerate(materiais_filtrados):
         if modo == "Pcs":
             qtd_pecas = int(val)
             peso_total = round(qtd_pecas * mat['peso_unit'], 2)
-        else:
+            detalhe_qtd = f"{qtd_pecas} Pcs"
+        elif modo == "Kg":
             peso_total = round(val, 2)
             qtd_pecas = max(1, int(peso_total / mat['peso_unit'])) if mat['peso_unit'] > 0 else 1
+            detalhe_qtd = f"{peso_total} Kg"
+        else:  # Metros (m)
+            metros_sel = round(val, 2)
+            peso_por_metro = mat['peso_unit'] / (mat['comp'] / 1000.0) if mat['comp'] > 0 else 1.0
+            peso_total = round(metros_sel * peso_por_metro, 2)
+            qtd_pecas = math.ceil(metros_sel / (mat['comp'] / 1000.0))
+            detalhe_qtd = f"{metros_sel} m"
             
         solicitacao_itens.append({
             "cod": mat["cod"],
             "nome": mat["nome"],
             "tipo": mat["tipo"],
-            "peso_unit": mat["peso_unit"],
-            "qtd_pecas": qtd_pecas,
+            "detalhe_qtd": detalhe_qtd,
             "peso_total": peso_total
         })
 
@@ -164,8 +170,8 @@ if solicitacao_itens:
     st.markdown(f"### 📋 Resumo da Solicitação para Compras ({len(solicitacao_itens)} itens selecionados)")
     
     df_resumo = pd.DataFrame(solicitacao_itens)
-    df_exib = df_resumo[["cod", "nome", "tipo", "qtd_pecas", "peso_total"]]
-    df_exib.columns = ["Código", "Descrição do Material", "Categoria", "Qtd (Pcs)", "Peso Total (Kg)"]
+    df_exib = df_resumo[["cod", "nome", "tipo", "detalhe_qtd", "peso_total"]]
+    df_exib.columns = ["Código", "Descrição do Material", "Categoria", "Quantidade Solicitada", "Peso Total (Kg)"]
     st.dataframe(df_exib, use_container_width=True, hide_index=True)
     
     peso_geral = df_resumo["peso_total"].sum()
@@ -187,7 +193,6 @@ if solicitacao_itens:
         
         story = []
         
-        # Cabeçalho Executivo do PDF
         t_top = Table([[Paragraph("SOLICITAÇÃO DE COMPRAS DE MATERIAIS — REFRIGERAÇÃO", style_title)]], colWidths=[18*cm])
         t_top.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#0A2540")),
@@ -197,7 +202,6 @@ if solicitacao_itens:
         story.append(t_top)
         story.append(Spacer(1, 10))
         
-        # Informações de Data e Emissor
         data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
         info_texto = f"<b>Data de Emissão:</b> {data_atual} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Destino:</b> Departamento de Suprimentos & Compras"
         t_info = Table([[Paragraph(info_texto, style_sub)]], colWidths=[18*cm])
@@ -209,12 +213,10 @@ if solicitacao_itens:
         story.append(t_info)
         story.append(Spacer(1, 10))
         
-        # Tabela de Itens
         rows = [[
             Paragraph("Cód.", style_h),
-            Paragraph("Descrição do Material (Blank / Insumo)", style_h),
-            Paragraph("Qtd (Pcs)", style_h),
-            Paragraph("Peso Unit.", style_h),
+            Paragraph("Descrição do Material", style_h),
+            Paragraph("Qtd Solicitada", style_h),
             Paragraph("Peso Total", style_h)
         ]]
         
@@ -222,12 +224,11 @@ if solicitacao_itens:
             rows.append([
                 Paragraph(str(item["cod"]), style_cc),
                 Paragraph(str(item["nome"]), style_c),
-                Paragraph(str(item["qtd_pecas"]), style_cc),
-                Paragraph(f"{item['peso_unit']} kg", style_cc),
+                Paragraph(str(item["detalhe_qtd"]), style_cc),
                 Paragraph(f"{item['peso_total']} kg", style_cc),
             ])
             
-        t_table = Table(rows, colWidths=[2*cm, 8.5*cm, 2*cm, 2.5*cm, 3*cm])
+        t_table = Table(rows, colWidths=[2*cm, 9.5*cm, 3.5*cm, 3*cm])
         t_table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#0052CC")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
@@ -238,7 +239,6 @@ if solicitacao_itens:
         story.append(t_table)
         story.append(Spacer(1, 15))
         
-        # Totalizador
         t_total = Table([[Paragraph(f"<b>PESO TOTAL DA SOLICITAÇÃO: {peso_total_geral:,.2f} KG</b>", ParagraphStyle('Tot', fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor("#0A2540"), alignment=2))]], colWidths=[18*cm])
         t_total.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#E2E8F0")),
@@ -262,4 +262,4 @@ if solicitacao_itens:
             use_container_width=True
         )
 else:
-    st.info("ℹ️ Insira quantidades (por Peças ou Kg) em pelo menos um dos materiais acima para habilitar o resumo e a exportação para compras.")
+    st.info("ℹ️ Insira quantidades em pelo menos um dos materiais acima para habilitar o resumo e a exportação para compras.")
