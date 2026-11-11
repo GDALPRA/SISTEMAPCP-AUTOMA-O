@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import io
 import math
 import openpyxl
@@ -29,7 +29,7 @@ st.markdown(
             📦 MATERIAIS PADRÃO — REFRIGERAÇÃO
         </h2>
         <p style="margin: 4px 0 0 0; color: #94A3B8; font-size: 13px;">
-            Banco de Insumos, Cálculo de Chapas por Blank, Regras de Perfis Tubulares (6m/m/kg) & Solicitação de Compras
+            Banco de Insumos, Gestão de Perfis Tubulares, Informações de Solicitante/Setor & Solicitação de Compras
         </p>
     </div>
     """,
@@ -82,62 +82,44 @@ def carregar_base_materiais():
         {"cod": "153380", "nome": "CH 0.43 X 1200 X 4000 NBR 7008 ZC Z275 NL S/OL", "tipo": "Chapas Cn Zn", "esp": 0.43, "larg": 1200, "comp": 4000, "dens": 7.85},
 
         # PERFIS DE INOX
-        {"cod": "158212", "nome": "TUBO INOX 304 NORM A 554 25X25 X 1.00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 25, "comp": 6000, "dens": 7.85, "dim2": 25, "formato": "quadrado"},
-        {"cod": "158217", "nome": "TUBO INOX 304 NORM A 554 15 X 15 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 15, "comp": 6000, "dens": 7.85, "dim2": 15, "formato": "quadrado"},
-        {"cod": "174028", "nome": "TUBO INOX 304 NORM A 554 20 X 20 X 1,20 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.20, "larg": 20, "comp": 6000, "dens": 7.85, "dim2": 20, "formato": "quadrado"},
-        {"cod": "158214", "nome": "TUBO INOX 304 NORM A 554 20 X 10 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 20, "comp": 6000, "dens": 7.85, "dim2": 10, "formato": "retangular"},
-        {"cod": "158216", "nome": "TUBO INOX 304 NORM A 554 40 X 20 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 40, "comp": 6000, "dens": 7.85, "dim2": 20, "formato": "retangular"},
-        {"cod": "158215", "nome": "TUBO INOX 304 NORM A 554 30 X 30 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 30, "comp": 6000, "dens": 7.85, "dim2": 30, "formato": "quadrado"},
-        {"cod": "82856", "nome": "TUBO INOX REDONDO 304 NORM A 554 1 1/4 POL", "tipo": "Perfis de Inox", "esp": 1.20, "larg": 31.75, "comp": 6000, "dens": 7.85, "formato": "redondo"},
-        {"cod": "164009", "nome": "TUBO INOX REDONDO 304 NORM A 554 1 POL", "tipo": "Perfis de Inox", "esp": 1.20, "larg": 25.4, "comp": 6000, "dens": 7.85, "formato": "redondo"},
-        {"cod": "74202", "nome": "TUBO INOX REDONDO 304 NORM A 554 2 POL", "tipo": "Perfis de Inox", "esp": 1.50, "larg": 50.8, "comp": 6000, "dens": 7.85, "formato": "redondo"},
+        {"cod": "158212", "nome": "TUBO INOX 304 NORM A 554 25X25 X 1.00 X 6000 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "158217", "nome": "TUBO INOX 304 NORM A 554 15 X 15 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "174028", "nome": "TUBO INOX 304 NORM A 554 20 X 20 X 1,20 X 6000 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "158214", "nome": "TUBO INOX 304 NORM A 554 20 X 10 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "158216", "nome": "TUBO INOX 304 NORM A 554 40 X 20 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "158215", "nome": "TUBO INOX 304 NORM A 554 30 X 30 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "82856", "nome": "TUBO INOX REDONDO 304 NORM A 554 1 1/4 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "164009", "nome": "TUBO INOX REDONDO 304 NORM A 554 1 POL", "tipo": "Perfis de Inox", "is_tubular": True},
+        {"cod": "74202", "nome": "TUBO INOX REDONDO 304 NORM A 554 2 POL", "tipo": "Perfis de Inox", "is_tubular": True},
         
         # PERFIS MINIMIZADOS / CARBONO
-        {"cod": "165413", "nome": "TUBO CARB RET NBR 6591 25X25X1,11 X 6000 MINI GALV", "tipo": "Perfis Minimizados", "esp": 1.11, "larg": 25, "comp": 6000, "dens": 7.85, "dim2": 25, "formato": "quadrado"},
+        {"cod": "165413", "nome": "TUBO CARB RET NBR 6591 25X25X1,11 X 6000 MINI GALV", "tipo": "Perfis Minimizados", "is_tubular": True},
     ]
 
 materiais = carregar_base_materiais()
 
-# Função para calcular o peso por metro (kg/m) de qualquer perfil tubular (quadrado, retangular ou redondo)
-def calcular_peso_metro(mat):
-    esp_mm = mat["esp"]
-    dens = mat["dens"]
-    formato = mat.get("formato", "quadrado")
-    
-    if formato in ["quadrado", "retangular"]:
-        d1_m = mat["larg"] / 1000.0
-        d2_m = mat.get("dim2", mat["larg"]) / 1000.0
-        esp_m = esp_mm / 1000.0
-        # Perímetro da seção * espessura * 1 metro * densidade
-        perimetro = 2 * (d1_m + d2_m)
-        return round(perimetro * esp_m * 1.0 * dens, 3)
-    elif formato == "redondo":
-        # Diâmetro externo em metros
-        diam_m = mat["larg"] / 1000.0
-        esp_m = esp_mm / 1000.0
-        # Diâmetro interno
-        diam_int_m = diam_m - (2 * esp_m)
-        # Área da seção transversal = pi/4 * (D^2 - d^2)
-        import math as m_geom
-        area = (m_geom.pi / 4.0) * ((diam_m ** 2) - (diam_int_m ** 2))
-        # Peso por metro = Área (m²) * 1m * Densidade (kg/m³)
-        return round(area * 1.0 * dens, 3)
-    else:
-        return 0.5
-
+# Processamento de pesos para chapas planas
 for m in materiais:
-    m["is_tubular"] = "TUBO" in m["nome"].upper() or m["tipo"] in ["Perfis de Inox", "Perfis Minimizados"]
-    if m["is_tubular"]:
-        m["peso_metro"] = calcular_peso_metro(m)
-        # Cada peça é uma barra padrão de 6 metros
-        m["peso_unit"] = round(m["peso_metro"] * 6.0, 2)
-    else:
-        # Chapa plana
+    if not m.get("is_tubular", False):
         esp = m["esp"]
         larg_m = m["larg"] / 1000.0
         comp_m = m["comp"] / 1000.0
         m["peso_unit"] = round(esp * larg_m * comp_m * m["dens"], 2)
-        m["peso_metro"] = 0.0
+    else:
+        m["peso_unit"] = 0.0
+
+# --- SEÇÃO DE CONFIGURAÇÃO DE SOLICITANTE E SETOR ---
+st.markdown("---")
+col_cfg1, col_cfg2 = st.columns(2)
+
+with col_cfg1:
+    solicitante_nome = st.text_input("👤 Nome do Solicitante:", value="Gabriel Dalpra")
+
+with col_cfg2:
+    setores_disponiveis = ["PCP", "Engenharia", "Produção", "Montagem", "Qualidade", "Manutenção"]
+    setor_destino = st.selectbox("🏢 Setor de Destino:", setores_disponiveis)
+
+st.markdown("---")
 
 # --- FILTROS E BARRA DE PESQUISA SUPERIOR ---
 col_filtro1, col_filtro2 = st.columns([2, 3])
@@ -157,7 +139,7 @@ materiais_filtrados = [
 ]
 
 st.markdown("---")
-st.markdown("<p style='color: #94A3B8; font-size: 13px;'>Para <b>Perfis Tubulares</b>: <b>Pcs</b> considera cada peça uma barra de 6m; <b>Metros (m)</b> calcula pelo comprimento exato informado; <b>Kg</b> insere o peso direto sem conversões.</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #94A3B8; font-size: 13px;'>Para <b>Perfis Tubulares</b>: <b>Pcs</b> considera cada peça uma barra de 6m; <b>Metros (m)</b> calcula pelo comprimento exato informado; <b>Kg</b> insere o peso direto sem somar no peso automático.</p>", unsafe_allow_html=True)
 
 solicitacao_itens = []
 
@@ -169,30 +151,26 @@ for idx, mat in enumerate(materiais_filtrados):
     with cols[1]:
         st.markdown(f"<p style='color: #E2E8F0; font-size:12px; margin-top:8px;'>{mat['nome']}</p>", unsafe_allow_html=True)
     with cols[2]:
-        if mat['is_tubular']:
-            peso_exib = f"{mat['peso_metro']} kg/m"
-        else:
-            peso_exib = f"{mat['peso_unit']} kg/un"
+        peso_exib = "Tubular (Sem Peso Fixo)" if mat.get('is_tubular', False) else f"{mat['peso_unit']} kg/un"
         st.markdown(f"<p style='color: #94A3B8; font-size:12px; margin-top:8px;'>{peso_exib}</p>", unsafe_allow_html=True)
     with cols[3]:
-        opcoes_modo = ["Pcs", "Metros (m)", "Kg"] if mat["is_tubular"] else ["Pcs", "Kg"]
+        opcoes_modo = ["Pcs", "Metros (m)", "Kg"] if mat.get('is_tubular', False) else ["Pcs", "Kg"]
         modo = st.selectbox("Modo", opcoes_modo, key=f"modo_{mat['cod']}_{idx}", label_visibility="collapsed")
     with cols[4]:
         val = st.number_input("Qtd", min_value=0.0, step=1.0, key=f"val_{mat['cod']}_{idx}", label_visibility="collapsed")
         
     if val > 0:
-        if mat['is_tubular']:
+        if mat.get('is_tubular', False):
             if modo == "Pcs":
                 qtd_pecas = int(val)
-                # Cada peça é uma barra de 6 metros
-                peso_total = round(qtd_pecas * mat['peso_metro'] * 6.0, 2)
+                peso_total = 0.0  # Tubos em peças não somam peso automático
                 detalhe_qtd = f"{qtd_pecas} Pcs ({qtd_pecas * 6} metros em barras de 6m)"
             elif modo == "Metros (m)":
                 metros_sel = round(val, 2)
-                peso_total = round(metros_sel * mat['peso_metro'], 2)
+                peso_total = 0.0  # Tubos em metros não somam peso automático
                 barras_aprox = math.ceil(metros_sel / 6.0)
                 detalhe_qtd = f"{metros_sel} m (~{barras_aprox} barras de 6m)"
-            else:  # Kg direto
+            else:  # Kg direto informado pelo usuário
                 peso_total = round(val, 2)
                 detalhe_qtd = f"{peso_total} Kg (Informado Direto)"
         else:
@@ -229,14 +207,14 @@ if solicitacao_itens:
     
     st.write("")
     
-    # --- GERADOR DE PDF PARA COMPRAS ---
-    def gerar_pdf_compras(itens, peso_total_geral):
+    # --- GERADOR DE PDF PARA COMPRAS COM HORÁRIO LOCAL CORRETO E ASSINATURA ---
+    def gerar_pdf_compras(itens, peso_total_geral, solicitante, setor):
         pdf_out = io.BytesIO()
         doc = SimpleDocTemplate(pdf_out, pagesize=portrait(A4), leftMargin=1.5*cm, rightMargin=1.5*cm, topMargin=1.5*cm, bottomMargin=1.5*cm)
         styles = getSampleStyleSheet()
         
         style_title = ParagraphStyle('T', fontName='Helvetica-Bold', fontSize=14, textColor=colors.white, alignment=1)
-        style_sub = ParagraphStyle('S', fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor("#0052CC"))
+        style_sub = ParagraphStyle('S', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor("#0052CC"))
         style_h = ParagraphStyle('H', fontName='Helvetica-Bold', fontSize=8, textColor=colors.white, alignment=1)
         style_c = ParagraphStyle('C', fontName='Helvetica', fontSize=8, leading=10)
         style_cc = ParagraphStyle('CC', fontName='Helvetica', fontSize=8, leading=10, alignment=1)
@@ -250,10 +228,13 @@ if solicitacao_itens:
             ('BOTTOMPADDING', (0,0), (-1,-1), 10),
         ]))
         story.append(t_top)
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 8))
         
-        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
-        info_texto = f"<b>Data de Emissão:</b> {data_atual} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Destino:</b> Departamento de Suprimentos & Compras"
+        # Horário oficial correto (Fuso Horário de Brasília / Brasil)
+        fuso_br = timezone(timedelta(hours=-3))
+        data_atual = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
+        
+        info_texto = f"<b>Data de Emissão:</b> {data_atual} &nbsp;|&nbsp; <b>Solicitante:</b> {solicitante} &nbsp;|&nbsp; <b>Setor:</b> {setor}"
         t_info = Table([[Paragraph(info_texto, style_sub)]], colWidths=[18*cm])
         t_info.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F1F5F9")),
@@ -271,11 +252,12 @@ if solicitacao_itens:
         ]]
         
         for item in itens:
+            peso_txt = f"{item['peso_total']} kg" if item['peso_total'] > 0 else "—"
             rows.append([
                 Paragraph(str(item["cod"]), style_cc),
                 Paragraph(str(item["nome"]), style_c),
                 Paragraph(str(item["detalhe_qtd"]), style_cc),
-                Paragraph(f"{item['peso_total']} kg", style_cc),
+                Paragraph(peso_txt, style_cc),
             ])
             
         t_table = Table(rows, colWidths=[2*cm, 9.5*cm, 3.5*cm, 3*cm])
@@ -287,15 +269,28 @@ if solicitacao_itens:
             ('BOTTOMPADDING', (0,0), (-1,-1), 5),
         ]))
         story.append(t_table)
-        story.append(Spacer(1, 15))
+        story.append(Spacer(1, 12))
         
-        t_total = Table([[Paragraph(f"<b>PESO TOTAL DA SOLICITAÇÃO: {peso_total_geral:,.2f} KG</b>", ParagraphStyle('Tot', fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor("#0A2540"), alignment=2))]], colWidths=[18*cm])
+        t_total = Table([[Paragraph(f"<b>PESO TOTAL CONSOLIDADO (CHAPAS): {peso_total_geral:,.2f} KG</b>", ParagraphStyle('Tot', fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor("#0A2540"), alignment=2))]], colWidths=[18*cm])
         t_total.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#E2E8F0")),
             ('TOPPADDING', (0,0), (-1,-1), 8),
             ('BOTTOMPADDING', (0,0), (-1,-1), 8),
         ]))
         story.append(t_total)
+        story.append(Spacer(1, 25))
+        
+        # Bloco de Assinaturas e Informações do Solicitante no rodapé do PDF
+        style_ass = ParagraphStyle('Ass', fontName='Helvetica', fontSize=8, textColor=colors.HexColor("#334155"), alignment=1)
+        t_assinatura = Table([
+            [Paragraph("___________________________________________________", style_ass), Paragraph("___________________________________________________", style_ass)],
+            [Paragraph(f"<b>Solicitante:</b> {solicitante}", style_ass), Paragraph(f"<b>Setor de Destino:</b> {setor}", style_ass)]
+        ], colWidths=[9*cm, 9*cm])
+        t_assinatura.setStyle(TableStyle([
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        story.append(t_assinatura)
         
         doc.build(story)
         pdf_out.seek(0)
@@ -303,11 +298,11 @@ if solicitacao_itens:
 
     st.write("")
     if st.button("📥 Gerar PDF de Solicitação para Compras", type="primary"):
-        pdf_bytes = gerar_pdf_compras(solicitacao_itens, peso_geral)
+        pdf_bytes = gerar_pdf_compras(solicitacao_itens, peso_geral, solicitante_nome, setor_destino)
         st.download_button(
             label="💾 Baixar PDF de Solicitação (.pdf)",
             data=pdf_bytes,
-            file_name=f"Solicitacao_Compras_Refrigeracao_{datetime.now().strftime('%Y%m%d')}.pdf",
+            file_name=f"Solicitacao_Compras_{setor_destino}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
