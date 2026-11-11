@@ -8,20 +8,20 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- CSS GLOBAL EXECUTIVO SLIM (OVERRIDE TOTAL DE TEMA) ---
+# --- CSS GLOBAL DARK EXECUTIVO SLIM ---
 st.markdown(
     """
     <style>
-        /* 1. FORÇAR COR DE FUNDO DA ÁREA DE TRABALHO (SLIM OFF-WHITE) */
+        /* 1. FORÇAR MODO ESCURO ENTERPRISE NA PÁGINA INTEIRA */
         html, body, [data-testid="stAppViewContainer"], .main {
-            background-color: #F8FAFC !important;
-            color: #0F172A !important;
+            background-color: #0E131F !important;
+            color: #E2E8F0 !important;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         }
 
-        /* 2. SIDEBAR EXECUTIVA SLIM (DARK NAVY NSF) */
+        /* 2. SIDEBAR ESCURA E SLIM */
         [data-testid="stSidebar"] {
-            background-color: #0F172A !important;
+            background-color: #080C14 !important;
             border-right: 1px solid #1E293B !important;
         }
 
@@ -38,7 +38,7 @@ st.markdown(
             text-transform: uppercase !important;
         }
 
-        /* 3. ESTILIZAÇÃO DAS ABAS DE NAVEGAÇÃO (SLIM & MODERNO) */
+        /* 3. ESTILIZAÇÃO DAS ABAS DE NAVEGAÇÃO */
         [data-testid="stSidebar"] div[role="radiogroup"] > label,
         [data-testid="stSidebarNav"] li a {
             border-radius: 6px !important;
@@ -49,13 +49,13 @@ st.markdown(
 
         [data-testid="stSidebar"] div[role="radiogroup"] > label:hover,
         [data-testid="stSidebarNav"] li a:hover {
-            background-color: #1E293B !important;
+            background-color: #172033 !important;
         }
 
         /* Item Selecionado na Sidebar */
         [data-testid="stSidebarNav"] li a[aria-current="page"],
         [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {
-            background-color: #1E293B !important;
+            background-color: #172033 !important;
             border-left: 3px solid #0052CC !important;
         }
 
@@ -65,43 +65,42 @@ st.markdown(
             font-weight: 600 !important;
         }
 
-        /* 4. CABEÇALHO SLIM (SEM CAIXAS AZUIS GIGANTES) */
-        .stHeader, header[data-testid="stHeader"] {
-            background-color: transparent !important;
-        }
-
-        /* Cartões de Entrada / Drag & Drop Slim */
+        /* 4. DRAG & DROP E FILE UPLOADER DARK SLIM */
         [data-testid="stFileUploader"] {
-            background-color: #FFFFFF !important;
-            border: 1px dashed #CBD5E1 !important;
+            background-color: #131927 !important;
+            border: 1px dashed #334155 !important;
             border-radius: 8px !important;
-            padding: 10px !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
+            padding: 12px !important;
         }
 
         [data-testid="stFileUploader"] section {
-            background-color: #FFFFFF !important;
+            background-color: #131927 !important;
+            color: #94A3B8 !important;
         }
 
-        /* Botões Slim e Executivos */
+        /* Botões Dark Executivos */
         .stDownloadButton button, .stButton button[kind="primary"] {
-            background-color: #0052CC !important;
+            background: linear-gradient(135deg, #0052CC 0%, #0A2540 100%) !important;
             color: #FFFFFF !important;
             font-weight: 500 !important;
             font-size: 13px !important;
             border-radius: 6px !important;
-            border: none !important;
+            border: 1px solid #1E40AF !important;
             padding: 8px 18px !important;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
         }
 
         .stDownloadButton button:hover, .stButton button[kind="primary"]:hover {
-            background-color: #0041A3 !important;
+            background: linear-gradient(135deg, #0041A3 0%, #061729 100%) !important;
+            border-color: #2563EB !important;
         }
 
-        /* Ocultar elementos desnecessários da barra superior */
+        /* Ocultar cabeçalhos desnecessários */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        .stHeader, header[data-testid="stHeader"] {
+            background-color: transparent !important;
+        }
     </style>
 """,
     unsafe_allow_html=True,
@@ -109,7 +108,6 @@ st.markdown(
 
 # --- SIDEBAR COM O LOGO OFICIAL VETORIZADO NSF ---
 with st.sidebar:
-    # Logo oficial vetorizado fiel ao manual de marca NSF (Pássaro estilizado + Tipografia)
     st.markdown(
         """
         <div style="text-align: center; padding: 20px 0 15px 0;">
@@ -143,7 +141,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-# --- CONFIGURAÇÃO DAS PÁGINAS COM ÍCONES SLIM (MATERIAL DESIGN) ---
+# --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA COM ÍCONES SLIM ---
 bandejas_page = st.Page(
     "views/bandejas_pead.py",
     title="Bandejas ABS & PEAD",
@@ -181,7 +179,7 @@ gerencial_page = st.Page(
     icon=":material/analytics:",
 )
 
-# --- ESTRUTURA DE NAVEGAÇÃO DA PLATAFORMA ---
+# --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
 pg = st.navigation(
     {
         "PLANEJAMENTO E CONTROLE (PCP)": [
@@ -208,5 +206,5 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-# Executa o roteador do Streamlit
+# Executa o roteador
 pg.run()
