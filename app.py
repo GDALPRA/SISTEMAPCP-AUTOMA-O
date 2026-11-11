@@ -179,6 +179,12 @@ gerencial_page = st.Page(
     icon=":material/analytics:",
 )
 
+materiais_page = st.Page(
+    "views/materiais_padrao.py",
+    title="Materiais Padrão (Refrigeração)",
+    icon=":material/inventory_2:",
+)
+
 # --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
 pg = st.navigation(
     {
@@ -189,6 +195,7 @@ pg = st.navigation(
             chapas_page,
             inox_page,
             gerencial_page,
+            materiais_page,
         ]
     }
 )
