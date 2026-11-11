@@ -29,7 +29,7 @@ st.markdown(
             📦 MATERIAIS PADRÃO — REFRIGERAÇÃO
         </h2>
         <p style="margin: 4px 0 0 0; color: #94A3B8; font-size: 13px;">
-            Banco de Insumos, Cálculo de Pesos por Blank, Conversão de Metros para Perfis & Solicitação de Compras
+            Banco de Insumos, Cálculo de Pesos por Blank & Perfis, Conversão por Metros e Solicitação de Compras
         </p>
     </div>
     """,
@@ -82,44 +82,68 @@ def carregar_base_materiais():
         {"cod": "153380", "nome": "CH 0.43 X 1200 X 4000 NBR 7008 ZC Z275 NL S/OL", "tipo": "Chapas Cn Zn", "esp": 0.43, "larg": 1200, "comp": 4000, "dens": 7.85},
 
         # PERFIS DE INOX
-        {"cod": "158212", "nome": "TUBO INOX 304 NORM A 554 25X25 X 1.00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 25, "comp": 6000, "dens": 7.85},
-        {"cod": "158217", "nome": "TUBO INOX 304 NORM A 554 15 X 15 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 15, "comp": 6000, "dens": 7.85},
-        {"cod": "174028", "nome": "TUBO INOX 304 NORM A 554 20 X 20 X 1,20 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.20, "larg": 20, "comp": 6000, "dens": 7.85},
-        {"cod": "158214", "nome": "TUBO INOX 304 NORM A 554 20 X 10 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 20, "comp": 6000, "dens": 7.85},
-        {"cod": "158216", "nome": "TUBO INOX 304 NORM A 554 40 X 20 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 40, "comp": 6000, "dens": 7.85},
-        {"cod": "158215", "nome": "TUBO INOX 304 NORM A 554 30 X 30 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 30, "comp": 6000, "dens": 7.85},
+        {"cod": "158212", "nome": "TUBO INOX 304 NORM A 554 25X25 X 1.00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 25, "comp": 6000, "dens": 7.85, "dim2": 25},
+        {"cod": "158217", "nome": "TUBO INOX 304 NORM A 554 15 X 15 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 15, "comp": 6000, "dens": 7.85, "dim2": 15},
+        {"cod": "174028", "nome": "TUBO INOX 304 NORM A 554 20 X 20 X 1,20 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.20, "larg": 20, "comp": 6000, "dens": 7.85, "dim2": 20},
+        {"cod": "158214", "nome": "TUBO INOX 304 NORM A 554 20 X 10 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 20, "comp": 6000, "dens": 7.85, "dim2": 10},
+        {"cod": "158216", "nome": "TUBO INOX 304 NORM A 554 40 X 20 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 40, "comp": 6000, "dens": 7.85, "dim2": 20},
+        {"cod": "158215", "nome": "TUBO INOX 304 NORM A 554 30 X 30 X 1,00 X 6000 POL", "tipo": "Perfis de Inox", "esp": 1.00, "larg": 30, "comp": 6000, "dens": 7.85, "dim2": 30},
+        
+        # PERFIS MINIMIZADOS / CARBONO
+        {"cod": "165413", "nome": "TUBO CARB RET NBR 6591 25X25X1,11 X 6000 MINI GALV", "tipo": "Perfis Minimizados", "esp": 1.11, "larg": 25, "comp": 6000, "dens": 7.85, "dim2": 25},
     ]
 
 materiais = carregar_base_materiais()
 
-# Função matemática para calcular o peso unitário
+# Função matemática precisa para cálculo de peso (chapas vs perfis tubulares de 6m)
 def calcular_peso_unitario(mat):
     esp = mat["esp"]
-    larg_m = mat["larg"] / 1000.0
-    comp_m = mat["comp"] / 1000.0
     dens = mat["dens"]
     
-    is_tubular = "TUBO" in mat["nome"].upper() or mat["tipo"] == "Perfis de Inox"
+    is_tubular = "TUBO" in mat["nome"].upper() or mat["tipo"] in ["Perfis de Inox", "Perfis Minimizados"]
+    
     if is_tubular:
-        peso_metro = esp * (larg_m) * dens * 0.1 # peso linear estimado para tubos e perfis
-        return round(peso_metro * (mat["comp"] / 1000.0), 2)
+        # Perfil tubular: cálculo do perímetro da seção x espessura x comprimento (6000mm = 6m) x densidade
+        # Perímetro aproximado para tubo retangular/quadrado: 2 * (A + B) em metros
+        dim1_m = mat["larg"] / 1000.0
+        dim2_m = mat.get("dim2", mat["larg"]) / 1000.0
+        esp_m = esp / 1000.0
+        
+        # Perímetro da seção tubular * espessura * comprimento em metros * densidade do aço
+        perimetro = 2 * (dim1_m + dim2_m)
+        peso_barra_6m = perimetro * esp_m * (mat["comp"] / 1000.0) * dens
+        return round(peso_barra_6m, 2)
     else:
+        # Chapa plana padrão
+        larg_m = mat["larg"] / 1000.0
+        comp_m = mat["comp"] / 1000.0
         peso = esp * larg_m * comp_m * dens
         return round(peso, 2)
 
 for m in materiais:
     m["peso_unit"] = calcular_peso_unitario(m)
-    m["is_tubular"] = "TUBO" in m["nome"].upper() or m["tipo"] == "Perfis de Inox"
+    m["is_tubular"] = "TUBO" in m["nome"].upper() or m["tipo"] in ["Perfis de Inox", "Perfis Minimizados"]
 
-# --- INTERFACE DE SELEÇÃO E QUANTIFICAÇÃO ---
-st.markdown("<p style='color: #94A3B8; font-size: 13px;'>Selecione os materiais, defina a quantidade por <b>Peças</b>, <b>Quilogramas (Kg)</b> ou <b>Metros (m)</b> (exclusivo para perfis tubulares) e gere a solicitação.</p>", unsafe_allow_html=True)
+# --- FILTROS E BARRA DE PESQUISA SUPERIOR ---
+col_filtro1, col_filtro2 = st.columns([2, 3])
 
-categorias = ["Todas"] + list(set([m["tipo"] for m in materiais]))
-cat_selecionada = st.selectbox("Filtrar por Categoria de Insumo:", categorias)
+with col_filtro1:
+    categorias = ["Todas"] + list(set([m["tipo"] for m in materiais]))
+    cat_selecionada = st.selectbox("Filtrar por Categoria de Insumo:", categorias)
 
-materiais_filtrados = [m for m in materiais if cat_selecionada == "Todas" or m["tipo"] == cat_selecionada]
+with col_filtro2:
+    busca_termo = st.text_input("🔍 Pesquisar por Código ou Descrição:", placeholder="Ex: 158212, Inox 304, 25X25...")
+
+# Filtragem combinada (Categoria + Termo de Busca)
+materiais_filtrados = [
+    m for m in materiais 
+    if (cat_selecionada == "Todas" or m["tipo"] == cat_selecionada) and
+       (not busca_termo or busca_termo.lower() in m["cod"].lower() or busca_termo.lower() in m["nome"].lower())
+]
 
 st.markdown("---")
+st.markdown("<p style='color: #94A3B8; font-size: 13px;'>Defina a quantidade por <b>Peças (Unidades)</b>, <b>Quilogramas (Kg)</b> ou <b>Metros (m)</b> (exclusivo para tubos de 6 metros) e gere a solicitação de compras.</p>", unsafe_allow_html=True)
+
 solicitacao_itens = []
 
 for idx, mat in enumerate(materiais_filtrados):
@@ -130,10 +154,9 @@ for idx, mat in enumerate(materiais_filtrados):
     with cols[1]:
         st.markdown(f"<p style='color: #E2E8F0; font-size:12px; margin-top:8px;'>{mat['nome']}</p>", unsafe_allow_html=True)
     with cols[2]:
-        peso_exib = f"{mat['peso_unit']} kg/un" if not mat['is_tubular'] else f"~{round(mat['peso_unit']/6.0, 2)} kg/m"
+        peso_exib = f"{mat['peso_unit']} kg/un" if not mat['is_tubular'] else f"{round(mat['peso_unit']/6.0, 2)} kg/m"
         st.markdown(f"<p style='color: #94A3B8; font-size:12px; margin-top:8px;'>{peso_exib}</p>", unsafe_allow_html=True)
     with cols[3]:
-        # Se for tubular, inclui a opção Metros (m)
         opcoes_modo = ["Pcs", "Kg", "Metros (m)"] if mat["is_tubular"] else ["Pcs", "Kg"]
         modo = st.selectbox("Modo", opcoes_modo, key=f"modo_{mat['cod']}_{idx}", label_visibility="collapsed")
     with cols[4]:
@@ -143,17 +166,17 @@ for idx, mat in enumerate(materiais_filtrados):
         if modo == "Pcs":
             qtd_pecas = int(val)
             peso_total = round(qtd_pecas * mat['peso_unit'], 2)
-            detalhe_qtd = f"{qtd_pecas} Pcs"
+            detalhe_qtd = f"{qtd_pecas} Pcs (Barras de 6m)" if mat['is_tubular'] else f"{qtd_pecas} Pcs"
         elif modo == "Kg":
             peso_total = round(val, 2)
             qtd_pecas = max(1, int(peso_total / mat['peso_unit'])) if mat['peso_unit'] > 0 else 1
             detalhe_qtd = f"{peso_total} Kg"
         else:  # Metros (m)
             metros_sel = round(val, 2)
-            peso_por_metro = mat['peso_unit'] / (mat['comp'] / 1000.0) if mat['comp'] > 0 else 1.0
+            peso_por_metro = mat['peso_unit'] / 6.0  # Barras padrão de 6 metros
             peso_total = round(metros_sel * peso_por_metro, 2)
-            qtd_pecas = math.ceil(metros_sel / (mat['comp'] / 1000.0))
-            detalhe_qtd = f"{metros_sel} m"
+            qtd_pecas = math.ceil(metros_sel / 6.0)
+            detalhe_qtd = f"{metros_sel} m (~{qtd_pecas} barras de 6m)"
             
         solicitacao_itens.append({
             "cod": mat["cod"],
@@ -262,4 +285,4 @@ if solicitacao_itens:
             use_container_width=True
         )
 else:
-    st.info("ℹ️ Insira quantidades em pelo menos um dos materiais acima para habilitar o resumo e a exportação para compras.")
+    st.info("ℹ️ Pesquise ou selecione quantidades em pelo menos um dos materiais acima para habilitar o resumo e a exportação para compras.")
