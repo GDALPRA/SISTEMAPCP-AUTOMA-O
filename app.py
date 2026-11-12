@@ -29,31 +29,33 @@ with st.sidebar:
 
 is_dark = tema_selecionado == "Escuro (Dark)"
 
-# --- PALETA DE CORES DINÂMICA (ALTO CONTRASTE GARANTIDO) ---
+# --- PALETA DE CORES DINÂMICA (PADRÃO MERCADO ERP) ---
 if is_dark:
-    BG_APP = "#0E131F"
-    BG_SIDEBAR = "#080C14"
-    TEXT_MAIN = "#E2E8F0"
+    BG_APP = "#0B0F19"
+    BG_SIDEBAR = "#05070D"
+    TEXT_MAIN = "#F1F5F9"
     TEXT_MUTED = "#94A3B8"
     BORDER_COLOR = "#1E293B"
     HOVER_COLOR = "#172033"
     UPLOADER_BG = "#131927"
     LOGO_TEXT = "#FFFFFF"
     SLOGAN_TEXT = "#64748B"
-    CARD_BG = "#131927"
+    CARD_BG = "#111827"
+    KPI_BG = "#131B2E"
 else:
     BG_APP = "#F8FAFC"
     BG_SIDEBAR = "#FFFFFF"
-    TEXT_MAIN = "#1E293B"
-    TEXT_MUTED = "#334155"
-    BORDER_COLOR = "#CBD5E1"
+    TEXT_MAIN = "#0F172A"
+    TEXT_MUTED = "#475569"
+    BORDER_COLOR = "#E2E8F0"
     HOVER_COLOR = "#F1F5F9"
     UPLOADER_BG = "#F1F5F9"
     LOGO_TEXT = "#1E3A8A"
-    SLOGAN_TEXT = "#475569"
+    SLOGAN_TEXT = "#64748B"
     CARD_BG = "#FFFFFF"
+    KPI_BG = "#FFFFFF"
 
-# --- CSS GLOBAL DINÂMICO ---
+# --- CSS GLOBAL DINÂMICO & ESTILO ERP PROFISSIONAL ---
 st.markdown(
     f"""
     <style>
@@ -101,7 +103,7 @@ st.markdown(
         [data-testid="stSidebarNav"] li a[aria-current="page"],
         [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {{
             background-color: {HOVER_COLOR} !important;
-            border-left: 3px solid #0052CC !important;
+            border-left: 3px solid #2563EB !important;
         }}
 
         [data-testid="stSidebarNav"] li a[aria-current="page"] span,
@@ -110,34 +112,36 @@ st.markdown(
             font-weight: 600 !important;
         }}
 
-        /* 4. CARDS E ELEMENTOS */
-        .erp-card {{
-            background-color: {CARD_BG};
+        /* 4. CARDS ESTILO ERP CORPORATIVO */
+        .erp-kpi-card {{
+            background-color: {KPI_BG};
             border: 1px solid {BORDER_COLOR};
             border-radius: 10px;
-            padding: 22px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-bottom: 15px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }}
 
-        /* Botões Executivos */
-        .stDownloadButton button, .stButton button[kind="primary"] {{
-            background: linear-gradient(135deg, #0052CC 0%, #0A2540 100%) !important;
-            color: #FFFFFF !important;
-            font-weight: 500 !important;
-            font-size: 13px !important;
-            border-radius: 6px !important;
-            border: 1px solid #1E40AF !important;
-            padding: 8px 18px !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        /* Estilização dos Botões de Módulos (Substituindo os cards estáticos por acionadores reais) */
+        .stButton button {{
+            background-color: {CARD_BG} !important;
+            color: {TEXT_MAIN} !important;
+            border: 1px solid {BORDER_COLOR} !important;
+            border-radius: 10px !important;
+            padding: 20px !important;
+            text-align: left !important;
+            width: 100% !important;
+            height: 140px !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+            transition: all 0.2s ease-in-out !important;
         }}
 
-        .stDownloadButton button:hover, .stButton button[kind="primary"]:hover {{
-            background: linear-gradient(135deg, #0041A3 0%, #061729 100%) !important;
+        .stButton button:hover {{
             border-color: #2563EB !important;
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.15) !important;
+            transform: translateY(-2px);
         }}
 
-        /* Ocultar elementos padrão desnecessários */
+        /* Ocultar elementos padrão desnecessários do Streamlit */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
         .stHeader, header[data-testid="stHeader"] {{
@@ -183,109 +187,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-# --- DEFINIÇÃO DA TELA INICIAL (ERP HOME) ---
-def render_home():
-    st.markdown(
-        """
-        <div style="padding: 10px 0 20px 0;">
-            <h1 style="font-size: 28px; font-weight: 800; margin-bottom: 5px;">
-                🕊️ Portal PCP Enterprise — NSF Tecnologia
-            </h1>
-            <p style="font-size: 14px; color: #94A3B8;">
-                Ambiente integrado de gestão de produção, cálculo de insumos, chapas, perfis estruturais e relatórios gerenciais para o varejo.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric(label="Módulos Operacionais", value="7 Ativos", delta="PCP & Engenharia")
-    with col2:
-        st.metric(label="Linhas de Produção", value="VA, VCA & VRA", delta="Integrado")
-    with col3:
-        st.metric(label="Controle de Insumos", value="Aço, PEAD & ABS", delta="Tempo Real")
-    with col4:
-        st.metric(label="Versão do Sistema", value="v4.0 Enterprise", delta="Estável")
-
-    st.markdown("---")
-    st.subheader("🚀 Acesso Rápido aos Módulos Operacionais")
-    st.markdown("Selecione abaixo o painel desejado ou utilize o menu lateral para navegar entre as automações:")
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown(
-            """
-            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
-                <h4 style="color: #60A5FA; margin-top: 0;">📦 Bandejas ABS & PEAD</h4>
-                <p style="font-size: 12px; color: #94A3B8;">Cálculo automatizado de bandejas plásticas e componentes para expositores.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c2:
-        st.markdown(
-            """
-            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
-                <h4 style="color: #34D399; margin-top: 0;">📐 Cálculo de Tubos (Chassis)</h4>
-                <p style="font-size: 12px; color: #94A3B8;">Gestão e dimensionamento de perfis tubulares e estruturas metálicas.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c3:
-        st.markdown(
-            """
-            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
-                <h4 style="color: #F472B6; margin-top: 0;">🛡️ Chapas de Aço Inox</h4>
-                <p style="font-size: 12px; color: #94A3B8;">Apuração de blanks (Inox 304 e 430) para bojos, costas, tampos e prateleiras.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("")
-    c4, c5, c6 = st.columns(3)
-    with c4:
-        st.markdown(
-            """
-            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
-                <h4 style="color: #FBBF24; margin-top: 0;">🚪 Portas & Frames (VA & VAP)</h4>
-                <p style="font-size: 12px; color: #94A3B8;">Cálculo de perfis de PVC, molduras e portas para refrigeração comercial.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c5:
-        st.markdown(
-            """
-            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
-                <h4 style="color: #A78BFA; margin-top: 0;">📊 Relatórios Gerenciais</h4>
-                <p style="font-size: 12px; color: #94A3B8;">Processamento de ORFAs e consolidação de dados executivos para diretoria.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with c6:
-        st.markdown(
-            """
-            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
-                <h4 style="color: #38BDF8; margin-top: 0;">⚙️ Materiais Padrão</h4>
-                <p style="font-size: 12px; color: #94A3B8;">Banco de insumos e parâmetros de engenharia para linhas de montagem.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-# --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA ---
-home_page = st.Page(
-    render_home,
-    title="Início (Portal ERP)",
-    icon=":material/dashboard:",
-    default=True,
-)
-
+# --- DEFINIÇÃO DOS MÓDULOS E PÁGINAS DO SISTEMA ---
 bandejas_page = st.Page(
     "views/bandejas_pead.py",
     title="Bandejas ABS & PEAD",
@@ -326,6 +228,110 @@ materiais_page = st.Page(
     "views/materiais_padrao.py",
     title="Materiais Padrão (Refrigeração)",
     icon=":material/inventory_2:",
+)
+
+# --- TELA INICIAL (DASHBOARD ERP PROFISSIONAL) ---
+def render_home():
+    st.markdown(
+        """
+        <div style="padding: 10px 0 20px 0;">
+            <h1 style="font-size: 26px; font-weight: 800; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
+                🕊️ Portal PCP Enterprise — Painel de Controle Executivo
+            </h1>
+            <p style="font-size: 14px; color: #94A3B8; margin: 0;">
+                Sistema de Gestão de Produção, Planejamento de Insumos e Automação de Engenharia para Refrigeração Comercial.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Cards de Indicadores Estilo ERP
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    with kpi1:
+        st.markdown(
+            f"""
+            <div class="erp-kpi-card">
+                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Módulos Ativos</span>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">7 Subsistemas</h3>
+                <span style="font-size: 11px; color: #22C55E; font-weight: 600;">● Operacional & Estável</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with kpi2:
+        st.markdown(
+            f"""
+            <div class="erp-kpi-card">
+                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Linhas de Fábrica</span>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">VA, VCA & VRA</h3>
+                <span style="font-size: 11px; color: #3B82F6; font-weight: 600;">◆ Integrado ao PCP</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with kpi3:
+        st.markdown(
+            f"""
+            <div class="erp-kpi-card">
+                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Insumos Gerenciados</span>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">Aço, PEAD & ABS</h3>
+                <span style="font-size: 11px; color: #22C55E; font-weight: 600;">⚡ Cálculo Dinâmico</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with kpi4:
+        st.markdown(
+            f"""
+            <div class="erp-kpi-card">
+                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Ambiente</span>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">Enterprise v4.0</h3>
+                <span style="font-size: 11px; color: #F59E0B; font-weight: 600;">★ Alta Performance</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <h3 style="font-size: 18px; font-weight: 700; color: {TEXT_MAIN}; margin-bottom: 15px;">
+            🚀 Acesso Rápido aos Módulos Operacionais
+        </h3>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Grid de Acesso Rápido Funcional com Botões Reais do Streamlit
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("📦 **Bandejas ABS & PEAD**\n\nCálculo automatizado de bandejas plásticas e componentes para expositores.", key="btn_bandejas"):
+            st.switch_page(bandejas_page)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🚪 **Portas & Frames (VA & VAP)**\n\nCálculo de perfis de PVC, molduras e portas para refrigeração.", key="btn_portas"):
+            st.switch_page(portas_page)
+
+    with col2:
+        if st.button("📐 **Cálculo de Tubos (Chassis)**\n\nGestão e dimensionamento de perfis tubulares e estruturas metálicas.", key="btn_tubos"):
+            st.switch_page(tubos_page)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("📊 **Relatórios Gerenciais (ORFAs)**\n\nProcessamento de ORFAs e consolidação de dados executivos.", key="btn_gerencial"):
+            st.switch_page(gerencial_page)
+
+    with col3:
+        if st.button("🛡️ **Chapas de Aço Inox**\n\nApuração de blanks (Inox 304 e 430) para bojos, costas e tampos.", key="btn_inox"):
+            st.switch_page(inox_page)
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("⚙️ **Materiais Padrão**\n\nBanco de insumos e parâmetros de engenharia para montagem.", key="btn_materiais"):
+            st.switch_page(materiais_page)
+
+home_page = st.Page(
+    render_home,
+    title="Início (Portal ERP)",
+    icon=":material/dashboard:",
+    default=True,
 )
 
 # --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
