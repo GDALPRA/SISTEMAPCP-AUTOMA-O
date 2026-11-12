@@ -121,16 +121,18 @@ st.markdown(
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }}
 
-        /* Estilização dos Botões de Módulos (Substituindo os cards estáticos por acionadores reais) */
+        /* Estilização Perfeita, Uniforme e Alinhada dos Botões de Acesso Rápido */
         .stButton button {{
             background-color: {CARD_BG} !important;
             color: {TEXT_MAIN} !important;
             border: 1px solid {BORDER_COLOR} !important;
             border-radius: 10px !important;
-            padding: 20px !important;
-            text-align: left !important;
+            padding: 15px 20px !important;
+            text-align: center !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
             width: 100% !important;
-            height: 140px !important;
+            height: 70px !important;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
             transition: all 0.2s ease-in-out !important;
         }}
@@ -303,28 +305,36 @@ def render_home():
         unsafe_allow_html=True,
     )
 
-    # Grid de Acesso Rápido Funcional com Botões Reais do Streamlit
+    # Grid de Acesso Rápido com 3 Colunas (Alinhadas, Tamanhos Iguais e Simétricas para as 7 páginas)
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("📦 **Bandejas ABS & PEAD**\n\nCálculo automatizado de bandejas plásticas e componentes para expositores.", key="btn_bandejas"):
+        if st.button("📦 Bandejas ABS & PEAD", key="btn_bandejas"):
             st.switch_page(bandejas_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🚪 **Portas & Frames (VA & VAP)**\n\nCálculo de perfis de PVC, molduras e portas para refrigeração.", key="btn_portas"):
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("🚪 Portas & Frames (VA & VAP)", key="btn_portas"):
             st.switch_page(portas_page)
 
     with col2:
-        if st.button("📐 **Cálculo de Tubos (Chassis)**\n\nGestão e dimensionamento de perfis tubulares e estruturas metálicas.", key="btn_tubos"):
+        if st.button("📐 Cálculo de Tubos (Chassis)", key="btn_tubos"):
             st.switch_page(tubos_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("📊 **Relatórios Gerenciais (ORFAs)**\n\nProcessamento de ORFAs e consolidação de dados executivos.", key="btn_gerencial"):
-            st.switch_page(gerencial_page)
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("🛡️ Chapas de Aço Inox", key="btn_inox"):
+            st.switch_page(inox_page)
 
     with col3:
-        if st.button("🛡️ **Chapas de Aço Inox**\n\nApuração de blanks (Inox 304 e 430) para bojos, costas e tampos.", key="btn_inox"):
-            st.switch_page(inox_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⚙️ **Materiais Padrão**\n\nBanco de insumos e parâmetros de engenharia para montagem.", key="btn_materiais"):
+        if st.button("📄 Chapas Cristal VA", key="btn_chapas"):
+            st.switch_page(chapas_page)
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("📊 Relatórios Gerenciais (ORFAs)", key="btn_gerencial"):
+            st.switch_page(gerencial_page)
+
+    st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+    
+    # 7º Botão centralizado na grade, mantendo exatamente o mesmo tamanho e padrão
+    c_left, c_center, c_right = st.columns(3)
+    with c_center:
+        if st.button("⚙️ Materiais Padrão", key="btn_materiais"):
             st.switch_page(materiais_page)
 
 home_page = st.Page(
