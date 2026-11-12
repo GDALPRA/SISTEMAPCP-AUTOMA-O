@@ -121,18 +121,18 @@ st.markdown(
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }}
 
-        /* Estilização dos Botões de Acesso Rápido */
+        /* Estilização Perfeita, Uniforme e Alinhada dos Botões de Acesso Rápido */
         .stButton button {{
             background-color: {CARD_BG} !important;
             color: {TEXT_MAIN} !important;
             border: 1px solid {BORDER_COLOR} !important;
             border-radius: 10px !important;
-            padding: 20px !important;
+            padding: 15px 20px !important;
             text-align: center !important;
             font-size: 15px !important;
             font-weight: 700 !important;
             width: 100% !important;
-            height: 85px !important;
+            height: 70px !important;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
             transition: all 0.2s ease-in-out !important;
         }}
@@ -271,104 +271,3 @@ def render_home():
             </div>
             """,
             unsafe_allow_html=True,
-        )
-    with kpi3:
-        st.markdown(
-            f"""
-            <div class="erp-kpi-card">
-                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Insumos Gerenciados</span>
-                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">Aço, PEAD & ABS</h3>
-                <span style="font-size: 11px; color: #22C55E; font-weight: 600;">⚡ Cálculo Dinâmico</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with kpi4:
-        st.markdown(
-            f"""
-            <div class="erp-kpi-card">
-                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Ambiente</span>
-                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">Enterprise v4.0</h3>
-                <span style="font-size: 11px; color: #F59E0B; font-weight: 600;">★ Alta Performance</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <h3 style="font-size: 18px; font-weight: 700; color: {TEXT_MAIN}; margin-bottom: 15px;">
-            🚀 Acesso Rápido aos Módulos Operacionais
-        </h3>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Grid de Acesso Rápido com Nomes Limpos e Diretos (Todas as 7 páginas contempladas)
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("📦 Bandejas ABS & PEAD", key="btn_bandejas"):
-            st.switch_page(bandejas_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🚪 Portas & Frames (VA & VAP)", key="btn_portas"):
-            st.switch_page(portas_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("📊 Relatórios Gerenciais (ORFAs)", key="btn_gerencial"):
-            st.switch_page(gerencial_page)
-
-    with col2:
-        if st.button("📐 Cálculo de Tubos (Chassis)", key="btn_tubos"):
-            st.switch_page(tubos_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🛡️ Chapas de Aço Inox", key="btn_inox"):
-            st.switch_page(inox_page)
-
-    with col3:
-        if st.button("📄 Chapas Cristal VA", key="btn_chapas"):
-            st.switch_page(chapas_page)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⚙️ Materiais Padrão", key="btn_materiais"):
-            st.switch_page(materiais_page)
-
-home_page = st.Page(
-    render_home,
-    title="Início (Portal ERP)",
-    icon=":material/dashboard:",
-    default=True,
-)
-
-# --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
-pg = st.navigation(
-    {
-        "GERENCIAMENTO GERAL": [
-            home_page,
-        ],
-        "PLANEJAMENTO E CONTROLE (PCP)": [
-            bandejas_page,
-            tubos_page,
-            portas_page,
-            chapas_page,
-            inox_page,
-            gerencial_page,
-            materiais_page,
-        ]
-    }
-)
-
-# Rodapé minimalista na barra lateral
-with st.sidebar:
-    st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div style="text-align: center; color: {SLOGAN_TEXT} !important; font-size: 10px;">
-            <p style="margin: 0; font-weight: 600; color: {LOGO_TEXT} !important;">NSF Enterprise v4.0</p>
-            <p style="margin: 2px 0 0 0;">Ambiente Integrado de Fábrica</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# Executa o roteador
-pg.run()
