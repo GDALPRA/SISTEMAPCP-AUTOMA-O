@@ -25,15 +25,15 @@ st.markdown(
 DENSIDADE_INOX = 7.93
 
 # Pesos Unitários dos Blanks de Inox (com códigos oficiais)
-PESO_CH_157219 = 0.80 * 1.24 * 3.90 * DENSIDADE_INOX  # CH 0.80 x 1240 x 3900 (~30.68 kg) - Prateleiras, Bandejas e Complementos VCA
-PESO_CH_053583 = 0.60 * 1.24 * 2.56 * DENSIDADE_INOX  # CH 0.60 x 1240 x 2560 (~15.10 kg) - Painéis VA / Costas VRA / Tampos VCA
-PESO_CH_104818 = 0.60 * 1.24 * 2.00 * DENSIDADE_INOX  # CH 0.60 x 1240 x 2000 (~11.80 kg) - Painéis VA / Tampos VCA
-PESO_CH_157228 = 0.60 * 1.24 * 3.84 * DENSIDADE_INOX  # CH 0.60 x 1240 x 3840 (~22.65 kg) - Costas VRA (1.87 e 3.75m)
-PESO_CH_156102 = 1.20 * 1.24 * 2.96 * DENSIDADE_INOX  # CH 1.20 x 1240 x 2960 (~27.60 kg) - Colunas VRA (4 un/ch) & VCA (5 un/ch)
-PESO_CH_153549 = 0.40 * 1.24 * 2.54 * DENSIDADE_INOX  # CH 0.40 x 1240 x 2540 (~9.99 kg) - Bojos (1.25, 2.0, 2.5)
-PESO_CH_156082 = 0.40 * 1.24 * 3.78 * DENSIDADE_INOX  # CH 0.40 x 1240 x 3780 (~14.87 kg) - Bojos (1.87, 3.75)
-PESO_CH_151947 = 0.40 * 1.24 * 2.55 * DENSIDADE_INOX  # CH 0.40 x 1240 x 2550 INOX 430 (~10.03 kg) - Tampos VRA/VCA (2.55m)
-PESO_CH_157101 = 0.40 * 1.24 * 2.06 * DENSIDADE_INOX  # CH 0.40 x 1240 x 2060 INOX 430 (~8.10 kg) - Tampos VRA/VCA (2.06m)
+PESO_CH_157219 = 0.80 * 1.24 * 3.90 * DENSIDADE_INOX  # Cód 157219 (~30.68 kg)
+PESO_CH_053583 = 0.60 * 1.24 * 2.56 * DENSIDADE_INOX  # Cód 053583 (~15.10 kg)
+PESO_CH_104818 = 0.60 * 1.24 * 2.00 * DENSIDADE_INOX  # Cód 104818 (~11.80 kg)
+PESO_CH_157228 = 0.60 * 1.24 * 3.84 * DENSIDADE_INOX  # Cód 157228 (~22.65 kg)
+PESO_CH_156102 = 1.20 * 1.24 * 2.96 * DENSIDADE_INOX  # Cód 156102 (~27.60 kg)
+PESO_CH_153549 = 0.40 * 1.24 * 2.54 * DENSIDADE_INOX  # Cód 153549 (~9.99 kg)
+PESO_CH_156082 = 0.40 * 1.24 * 3.78 * DENSIDADE_INOX  # Cód 156082 (~14.87 kg)
+PESO_CH_151947 = 0.40 * 1.24 * 2.55 * DENSIDADE_INOX  # Cód 151947 (~10.03 kg)
+PESO_CH_157101 = 0.40 * 1.24 * 2.06 * DENSIDADE_INOX  # Cód 157101 (~8.10 kg)
 
 
 def extrair_modulos_acougue(texto_alinhamento):
@@ -60,15 +60,15 @@ def extrair_modulos_acougue(texto_alinhamento):
 def calcular_inox_geral(df_input):
     detalhamento = []
 
-    total_ch_157219 = 0.0   # 0.80 x 1240 x 3900 (Prateleiras, Bandejas e Complementos)
-    total_ch_053583 = 0.0   # 0.60 x 1240 x 2560
-    total_ch_104818 = 0.0   # 0.60 x 1240 x 2000
-    total_ch_157228 = 0.0   # 0.60 x 1240 x 3840 (Costas VRA)
-    total_ch_156102 = 0.0   # 1.20 x 1240 x 2960 (Colunas VRA & VCA)
-    total_ch_153549 = 0.0   # 0.40 x 1240 x 2540 (Bojos)
-    total_ch_156082 = 0.0   # 0.40 x 1240 x 3780 (Bojos)
-    total_ch_151947 = 0.0   # Tampos VRA/VCA (2.55m - Cód 151947)
-    total_ch_157101 = 0.0   # Tampos VRA/VCA (2.06m - Cód 157101)
+    total_ch_157219 = 0.0
+    total_ch_053583 = 0.0
+    total_ch_104818 = 0.0
+    total_ch_157228 = 0.0
+    total_ch_156102 = 0.0
+    total_ch_153549 = 0.0
+    total_ch_156082 = 0.0
+    total_ch_151947 = 0.0
+    total_ch_157101 = 0.0
 
     for idx, row in df_input.iterrows():
         cliente = str(row.get("Name", row.get("Cliente / Projeto", "Cliente")))
@@ -99,7 +99,7 @@ def calcular_inox_geral(df_input):
         ch_157101_item = 0.0
 
         # ==========================================
-        # 1. PRATELEIRAS, BANDEJAS E COMPLEMENTOS VCA (Inox 0.80mm - Chapa 3900 / Cod 157219)
+        # 1. PRATELEIRAS, BANDEJAS E COMPLEMENTOS VCA (Inox 0.80mm - Chapa 3900 / Cód 157219)
         # ==========================================
         if is_vra:
             modulos_equiv = dim_float / 1.25 if dim_float > 0 else 1.0
@@ -120,7 +120,6 @@ def calcular_inox_geral(df_input):
                 ch_157219_item += total_prat_pecas / 6.0
 
         elif is_vca:
-            # Bandejas Baixas VCA
             modulos_equiv = dim_float / 1.25 if dim_float > 0 else 1.0
             if dim_float in [1.87, 1.875]:
                 bandejas_tot = (2 * qtd)
@@ -128,25 +127,19 @@ def calcular_inox_geral(df_input):
                 bandejas_tot = (modulos_equiv * 3 * qtd)
             ch_157219_item += bandejas_tot / 8.0
 
-            # Complementos do Bojo VCA por expositor (com base nos módulos de 1,25m):
             if dim_float == 2.0:
-                # 2 metros: 1 complemento de 2m (4 un/chapa)
                 complementos_tot = (1 * qtd)
                 ch_157219_item += complementos_tot / 4.0
             elif dim_float == 2.5:
-                # 2,5 metros: 2 complementos de 1,25m por expositor (12 un/chapa)
                 complementos_tot = (2 * qtd)
                 ch_157219_item += complementos_tot / 12.0
             elif dim_float == 3.75:
-                # 3,75 metros: 3 complementos de 1,25m por expositor (12 un/chapa)
                 complementos_tot = (3 * qtd)
                 ch_157219_item += complementos_tot / 12.0
             elif dim_float in [1.87, 1.875]:
-                # 1,87m: 1 complemento por expositor (8 un/chapa)
                 complementos_tot = (1 * qtd)
                 ch_157219_item += complementos_tot / 8.0
             else:
-                # 1,25m: 1 complemento por expositor (12 un/chapa)
                 complementos_tot = (1 * qtd)
                 ch_157219_item += complementos_tot / 12.0
 
@@ -300,15 +293,15 @@ def calcular_inox_geral(df_input):
                 "LINHA": linha,
                 "DIMENSÃO (m)": dim_raw,
                 "ALINHAMENTO": alinhamento,
-                "CH 3900 (0.8)": round(ch_157219_item, 2),
-                "CH 2560 (0.6)": round(ch_053583_item, 2),
-                "CH 2000 (0.6)": round(ch_104818_item, 2),
-                "CH 3840 (0.6 VRA)": round(ch_157228_item, 2),
-                "COLUNAS (1.2 VRA/VCA)": round(ch_156102_item, 2),
-                "CH 2540 (0.4)": round(ch_153549_item, 2),
-                "CH 3780 (0.4)": round(ch_156082_item, 2),
-                "TAMPO 2550 (Cód 151947)": round(ch_151947_item, 2),
-                "TAMPO 2060 (Cód 157101)": round(ch_157101_item, 2),
+                "CÓD 157219": round(ch_157219_item, 2),
+                "CÓD 053583": round(ch_053583_item, 2),
+                "CÓD 104818": round(ch_104818_item, 2),
+                "CÓD 157228": round(ch_157228_item, 2),
+                "CÓD 156102": round(ch_156102_item, 2),
+                "CÓD 153549": round(ch_153549_item, 2),
+                "CÓD 156082": round(ch_156082_item, 2),
+                "CÓD 151947": round(ch_151947_item, 2),
+                "CÓD 157101": round(ch_157101_item, 2),
                 "PESO TOTAL (kg)": round(peso_item, 2),
             }
         )
@@ -326,19 +319,19 @@ def calcular_inox_geral(df_input):
     )
 
     resumo = {
-        "ch_3900_un": round(total_ch_157219, 2),
-        "peso_3900_kg": total_ch_157219 * PESO_CH_157219,
-        "ch_2560_un": round(total_ch_053583, 2),
-        "peso_2560_kg": total_ch_053583 * PESO_CH_053583,
-        "ch_2000_un": round(total_ch_104818, 2),
-        "peso_2000_kg": total_ch_104818 * PESO_CH_104818,
-        "ch_3840_06_un": round(total_ch_157228, 2),
+        "ch_157219_un": round(total_ch_157219, 2),
+        "peso_157219_kg": total_ch_157219 * PESO_CH_157219,
+        "ch_053583_un": round(total_ch_053583, 2),
+        "peso_053583_kg": total_ch_053583 * PESO_CH_053583,
+        "ch_104818_un": round(total_ch_104818, 2),
+        "peso_104818_kg": total_ch_104818 * PESO_CH_104818,
+        "ch_157228_un": round(total_ch_157228, 2),
         "peso_3840_06_kg": total_ch_157228 * PESO_CH_157228,
-        "colunas_v_un": round(total_ch_156102, 2),
+        "ch_156102_un": round(total_ch_156102, 2),
         "peso_colunas_v_kg": total_ch_156102 * PESO_CH_156102,
-        "ch_2540_un": round(total_ch_153549, 2),
-        "peso_2540_kg": total_ch_153549 * PESO_CH_153549,
-        "ch_3780_un": round(total_ch_156082, 2),
+        "ch_153549_un": round(total_ch_153549, 2),
+        "peso_153549_kg": total_ch_153549 * PESO_CH_153549,
+        "ch_156082_un": round(total_ch_156082, 2),
         "peso_3780_kg": total_ch_156082 * PESO_CH_156082,
         "ch_151947_un": round(total_ch_151947, 2),
         "peso_151947_kg": total_ch_151947 * PESO_CH_151947,
@@ -398,26 +391,26 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
 
     kpi_headers = [
         "TOTAL DE CHAPAS (UN)",
-        "CH 3900 (0.8)",
-        "CH 2560 (0.6)",
-        "CH 2000 (0.6)",
-        "CH 3840 (0.6 VRA)",
-        "COLUNAS (1.2 VRA/VCA)",
-        "CH 2540 (0.4)",
-        "CH 3780 (0.4)",
+        "CÓD 157219",
+        "CÓD 053583",
+        "CÓD 104818",
+        "CÓD 157228",
+        "CÓD 156102",
+        "CÓD 153549",
+        "CÓD 156082",
         "CÓD 151947",
         "CÓD 157101",
         "PESO TOTAL (kg)",
     ]
     kpi_values = [
         resumo["total_chapas_geral"],
-        resumo["ch_3900_un"],
-        resumo["ch_2560_un"],
-        resumo["ch_2000_un"],
-        resumo["ch_3840_06_un"],
-        resumo["colunas_v_un"],
-        resumo["ch_2540_un"],
-        resumo["ch_3780_un"],
+        resumo["ch_157219_un"],
+        resumo["ch_053583_un"],
+        resumo["ch_104818_un"],
+        resumo["ch_157228_un"],
+        resumo["ch_156102_un"],
+        resumo["ch_153549_un"],
+        resumo["ch_156082_un"],
         resumo["ch_151947_un"],
         resumo["ch_157101_un"],
         round(resumo["peso_total_kg"], 2),
@@ -447,17 +440,21 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
 
-    resumo_data = [
-        ["157219", "CH 0.80 x 1240 x 3900 INOX 304 (Prat/Bandejas/Complementos VCA)", resumo["ch_3900_un"], round(resumo["peso_3900_kg"], 2)],
-        ["053583", "CH 0.60 x 1240 x 2560 INOX 304 (Painéis VA, Costas VRA & Tampos VCA)", resumo["ch_2560_un"], round(resumo["peso_2560_kg"], 2)],
-        ["104818", "CH 0.60 x 1240 x 2000 INOX 304 (Painéis VA & Tampos VCA)", resumo["ch_2000_un"], round(resumo["peso_2000_kg"], 2)],
-        ["157228", "CH 0.60 x 1240 x 3840 INOX 304 (Costas VRA 1.87/3.75m)", resumo["ch_3840_06_un"], round(resumo["peso_3840_06_kg"], 2)],
-        ["156102", "CH 1.20 x 1240 x 2960 INOX 304 (Colunas VRA=4un/ch, VCA=5un/ch)", resumo["colunas_v_un"], round(resumo["peso_colunas_v_kg"], 2)],
-        ["153549", "CH 0.40 x 1240 x 2540 INOX 304 (Bojos VA, VCA, VRA)", resumo["ch_2540_un"], round(resumo["peso_2540_kg"], 2)],
-        ["156082", "CH 0.40 x 1240 x 3780 INOX 304 (Bojos VA, VCA, VRA)", resumo["ch_3780_un"], round(resumo["peso_3780_kg"], 2)],
-        ["151947", "CH 0.40 x 1240 x 2550 INOX 430 (Tampos VRA/VCA - 2.55m)", resumo["ch_151947_un"], round(resumo["peso_151947_kg"], 2)],
-        ["157101", "CH 0.40 x 1240 x 2060 INOX 430 (Tampos VRA/VCA - 2.06m)", resumo["ch_157101_un"], round(resumo["peso_157101_kg"], 2)],
+    # Lista completa de todos os blanks candidatos
+    candidatos_resumo = [
+        ["157219", "CH 0.80 x 1240 x 3900 INOX 304", resumo["ch_157219_un"], round(resumo["peso_157219_kg"], 2)],
+        ["053583", "CH 0.60 x 1240 x 2560 INOX 304", resumo["ch_053583_un"], round(resumo["peso_053583_kg"], 2)],
+        ["104818", "CH 0.60 x 1240 x 2000 INOX 304", resumo["ch_104818_un"], round(resumo["peso_104818_kg"], 2)],
+        ["157228", "CH 0.60 x 1240 x 3840 INOX 304", resumo["ch_157228_un"], round(resumo["peso_3840_06_kg"], 2)],
+        ["156102", "CH 1.20 x 1240 x 2960 INOX 304", resumo["ch_156102_un"], round(resumo["peso_colunas_v_kg"], 2)],
+        ["153549", "CH 0.40 x 1240 x 2540 INOX 304", resumo["ch_153549_un"], round(resumo["peso_153549_kg"], 2)],
+        ["156082", "CH 0.40 x 1240 x 3780 INOX 304", resumo["ch_156082_un"], round(resumo["peso_3780_kg"], 2)],
+        ["151947", "CH 0.40 x 1240 x 2550 INOX 430", resumo["ch_151947_un"], round(resumo["peso_151947_kg"], 2)],
+        ["157101", "CH 0.40 x 1240 x 2060 INOX 430", resumo["ch_157101_un"], round(resumo["peso_157101_kg"], 2)],
     ]
+
+    # Filtra apenas os blanks com quantidade maior que zero
+    resumo_data = [item for item in candidatos_resumo if item[2] > 0]
 
     for r_idx, row_vals in enumerate(resumo_data, 11):
         for c_idx, val in enumerate(row_vals, 1):
@@ -469,7 +466,7 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
             else:
                 cell.alignment = Alignment(horizontal="left", vertical="center")
 
-    start_row = 22
+    start_row = 11 + len(resumo_data) + 3
     ws.cell(row=start_row - 1, column=1, value="2. DEMANDA DETALHADA DE INOX POR CLIENTE E EXPOSITOR").font = font_section
 
     detalhe_headers = list(df_detalhe.columns)
@@ -534,16 +531,17 @@ if uploaded_file:
         st.markdown("---")
         st.subheader("📊 Indicadores Totais de Inox Necessários (VA, VCA & VRA)")
 
-        col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns(9)
-        col1.metric("CH 3900 (0.8)", f"{resumo['ch_3900_un']} un")
-        col2.metric("CH 2560 (0.6)", f"{resumo['ch_2560_un']} un")
-        col3.metric("CH 2000 (0.6)", f"{resumo['ch_2000_un']} un")
-        col4.metric("CH 3840 (0.6)", f"{resumo['ch_3840_06_un']} un")
-        col5.metric("Colunas (1.2)", f"{resumo['colunas_v_un']} un")
-        col6.metric("CH 2540 (0.4)", f"{resumo['ch_2540_un']} un")
-        col7.metric("CH 3780 (0.4)", f"{resumo['ch_3780_un']} un")
-        col8.metric("Tampos (Cód 151947/157101)", f"{resumo['ch_151947_un'] + resumo['ch_157101_un']} un")
-        col9.metric("Peso Total", f"{resumo['peso_total_kg']:.2f} kg")
+        col1, col2, col3, col4, col5, col6, col7, col8, col9, col10 = st.columns(10)
+        col1.metric("CÓD 157219", f"{resumo['ch_157219_un']} un")
+        col2.metric("CÓD 053583", f"{resumo['ch_053583_un']} un")
+        col3.metric("CÓD 104818", f"{resumo['ch_104818_un']} un")
+        col4.metric("CÓD 157228", f"{resumo['ch_157228_un']} un")
+        col5.metric("CÓD 156102", f"{resumo['ch_156102_un']} un")
+        col6.metric("CÓD 153549", f"{resumo['ch_153549_un']} un")
+        col7.metric("CÓD 156082", f"{resumo['ch_156082_un']} un")
+        col8.metric("CÓD 151947", f"{resumo['ch_151947_un']} un")
+        col9.metric("CÓD 157101", f"{resumo['ch_157101_un']} un")
+        col10.metric("Peso Total", f"{resumo['peso_total_kg']:.2f} kg")
 
         st.markdown("---")
         st.subheader("📄 Detalhamento Completo por Item")
