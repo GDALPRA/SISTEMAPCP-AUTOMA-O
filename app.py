@@ -40,6 +40,7 @@ if is_dark:
     UPLOADER_BG = "#131927"
     LOGO_TEXT = "#FFFFFF"
     SLOGAN_TEXT = "#64748B"
+    CARD_BG = "#131927"
 else:
     BG_APP = "#F8FAFC"
     BG_SIDEBAR = "#FFFFFF"
@@ -50,6 +51,7 @@ else:
     UPLOADER_BG = "#F1F5F9"
     LOGO_TEXT = "#1E3A8A"
     SLOGAN_TEXT = "#475569"
+    CARD_BG = "#FFFFFF"
 
 # --- CSS GLOBAL DINÂMICO ---
 st.markdown(
@@ -108,17 +110,14 @@ st.markdown(
             font-weight: 600 !important;
         }}
 
-        /* 4. DRAG & DROP E FILE UPLOADER */
-        [data-testid="stFileUploader"] {{
-            background-color: {UPLOADER_BG} !important;
-            border: 1px dashed {BORDER_COLOR} !important;
-            border-radius: 8px !important;
-            padding: 12px !important;
-        }}
-
-        [data-testid="stFileUploader"] section {{
-            background-color: {UPLOADER_BG} !important;
-            color: {TEXT_MUTED} !important;
+        /* 4. CARDS E ELEMENTOS */
+        .erp-card {{
+            background-color: {CARD_BG};
+            border: 1px solid {BORDER_COLOR};
+            border-radius: 10px;
+            padding: 22px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
         }}
 
         /* Botões Executivos */
@@ -154,9 +153,17 @@ with st.sidebar:
     st.markdown(
         f"""
         <div style="text-align: center; padding: 15px 5px 10px 5px;">
-            <div style="font-size: 32px; font-weight: 900; letter-spacing: 2px; color: {LOGO_TEXT}; margin-bottom: 2px;">
-                🕊️ NSF
-            </div>
+            <svg width="210" height="65" viewBox="0 0 320 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Asa Superior Azul -->
+                <path d="M 15 28 C 35 10, 75 12, 102 42 C 78 38, 45 35, 15 28 Z" fill="#2563EB"/>
+                <!-- Cabeça e Bico Verde -->
+                <path d="M 102 42 C 112 22, 116 15, 122 10 C 112 58, 70 72, 46 66 C 70 60, 88 50, 102 42 Z" fill="#22C55E"/>
+                <!-- Base Laranja / Amarela (Cauda) -->
+                <path d="M 10 56 C 32 76, 65 72, 102 44 C 68 52, 36 54, 10 56 Z" fill="#F97316"/>
+                <path d="M 10 56 C 22 66, 45 68, 68 60 C 42 58, 26 56, 10 56 Z" fill="#EAB308"/>
+                <!-- Tipografia NSF -->
+                <text x="135" y="62" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="56" fill="{LOGO_TEXT}" letter-spacing="2">NSF</text>
+            </svg>
             <div style="margin-top: 4px; padding: 0 5px;">
                 <p style="color: {LOGO_TEXT} !important; font-size: 9.5px; font-weight: 800; margin: 0; letter-spacing: 0.9px; text-transform: uppercase; line-height: 1.3;">
                     TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
@@ -172,16 +179,22 @@ with st.sidebar:
 
     st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 10px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        f"<p style='color: {SLOGAN_TEXT} !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Módulos Operacionais</p>",
+        f"<p style='color: {SLOGAN_TEXT} !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Navegação do Sistema</p>",
         unsafe_allow_html=True,
     )
 
-# --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA COM ÍCONES SLIM ---
+# --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA ---
+home_page = st.Page(
+    "views/home_erp.py",
+    title="Início (Portal ERP)",
+    icon=":material/dashboard:",
+    default=True,
+)
+
 bandejas_page = st.Page(
     "views/bandejas_pead.py",
     title="Bandejas ABS & PEAD",
     icon=":material/layers:",
-    default=True,
 )
 
 tubos_page = st.Page(
@@ -223,6 +236,9 @@ materiais_page = st.Page(
 # --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
 pg = st.navigation(
     {
+        "GERENCIAMENTO GERAL": [
+            home_page,
+        ],
         "PLANEJAMENTO E CONTROLE (PCP)": [
             bandejas_page,
             tubos_page,
