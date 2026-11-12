@@ -24,7 +24,7 @@ st.markdown(
 # --- CONSTANTES TÉCNICAS E PESOS ---
 DENSIDADE_INOX = 7.93
 
-# Pesos Unitários dos Blanks de Inox (com códigos oficiais)
+# Pesos Unitários dos Blanks de Inox
 PESO_CH_157219 = 0.80 * 1.24 * 3.90 * DENSIDADE_INOX  # Cód 157219 (~30.68 kg)
 PESO_CH_053583 = 0.60 * 1.24 * 2.56 * DENSIDADE_INOX  # Cód 053583 (~15.10 kg)
 PESO_CH_104818 = 0.60 * 1.24 * 2.00 * DENSIDADE_INOX  # Cód 104818 (~11.80 kg)
@@ -293,15 +293,15 @@ def calcular_inox_geral(df_input):
                 "LINHA": linha,
                 "DIMENSÃO (m)": dim_raw,
                 "ALINHAMENTO": alinhamento,
-                "CÓD 157219": round(ch_157219_item, 2),
-                "CÓD 053583": round(ch_053583_item, 2),
-                "CÓD 104818": round(ch_104818_item, 2),
-                "CÓD 157228": round(ch_157228_item, 2),
-                "CÓD 156102": round(ch_156102_item, 2),
-                "CÓD 153549": round(ch_153549_item, 2),
-                "CÓD 156082": round(ch_156082_item, 2),
-                "CÓD 151947": round(ch_151947_item, 2),
-                "CÓD 157101": round(ch_157101_item, 2),
+                "0,8 (3900)": round(ch_157219_item, 2),
+                "0,6 (2560)": round(ch_053583_item, 2),
+                "0,6 (2000)": round(ch_104818_item, 2),
+                "0,6 (3840 VRA)": round(ch_157228_item, 2),
+                "1,2 (2960 Colunas)": round(ch_156102_item, 2),
+                "0,4 (2540)": round(ch_153549_item, 2),
+                "0,4 (3780)": round(ch_156082_item, 2),
+                "0,4 (2550)": round(ch_151947_item, 2),
+                "0,4 (2060)": round(ch_157101_item, 2),
                 "PESO TOTAL (kg)": round(peso_item, 2),
             }
         )
@@ -389,32 +389,23 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
 
     ws.cell(row=4, column=1, value="INDICADORES GERAIS DE INOX").font = font_section
 
-    kpi_headers = [
-        "TOTAL DE CHAPAS (UN)",
-        "CÓD 157219",
-        "CÓD 053583",
-        "CÓD 104818",
-        "CÓD 157228",
-        "CÓD 156102",
-        "CÓD 153549",
-        "CÓD 156082",
-        "CÓD 151947",
-        "CÓD 157101",
-        "PESO TOTAL (kg)",
+    # Montagem dinâmica dos cabeçalhos e valores do KPI (apenas chapas com quantidade > 0)
+    candidatos_kpi = [
+        ("0,8 (3900)", resumo["ch_157219_un"]),
+        ("0,6 (2560)", resumo["ch_053583_un"]),
+        ("0,6 (2000)", resumo["ch_104818_un"]),
+        ("0,6 (3840 VRA)", resumo["ch_157228_un"]),
+        ("1,2 (2960 Colunas)", resumo["ch_156102_un"]),
+        ("0,4 (2540)", resumo["ch_153549_un"]),
+        ("0,4 (3780)", resumo["ch_156082_un"]),
+        ("0,4 (2550)", resumo["ch_151947_un"]),
+        ("0,4 (2060)", resumo["ch_157101_un"]),
     ]
-    kpi_values = [
-        resumo["total_chapas_geral"],
-        resumo["ch_157219_un"],
-        resumo["ch_053583_un"],
-        resumo["ch_104818_un"],
-        resumo["ch_157228_un"],
-        resumo["ch_156102_un"],
-        resumo["ch_153549_un"],
-        resumo["ch_156082_un"],
-        resumo["ch_151947_un"],
-        resumo["ch_157101_un"],
-        round(resumo["peso_total_kg"], 2),
-    ]
+
+    kpi_ativos = [item for item in candidatos_kpi if item[1] > 0]
+
+    kpi_headers = ["TOTAL DE CHAPAS (UN)"] + [item[0] for item in kpi_ativos] + ["PESO TOTAL (kg)"]
+    kpi_values = [resumo["total_chapas_geral"]] + [item[1] for item in kpi_ativos] + [round(resumo["peso_total_kg"], 2)]
 
     for c_idx, h in enumerate(kpi_headers, 1):
         cell = ws.cell(row=5, column=c_idx, value=h)
@@ -440,7 +431,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border = thin_border
 
-    # Lista completa de todos os blanks candidatos
     candidatos_resumo = [
         ["157219", "CH 0.80 x 1240 x 3900 INOX 304", resumo["ch_157219_un"], round(resumo["peso_157219_kg"], 2)],
         ["053583", "CH 0.60 x 1240 x 2560 INOX 304", resumo["ch_053583_un"], round(resumo["peso_053583_kg"], 2)],
@@ -453,7 +443,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
         ["157101", "CH 0.40 x 1240 x 2060 INOX 430", resumo["ch_157101_un"], round(resumo["peso_157101_kg"], 2)],
     ]
 
-    # Filtra apenas os blanks com quantidade maior que zero
     resumo_data = [item for item in candidatos_resumo if item[2] > 0]
 
     for r_idx, row_vals in enumerate(resumo_data, 11):
@@ -531,17 +520,25 @@ if uploaded_file:
         st.markdown("---")
         st.subheader("📊 Indicadores Totais de Inox Necessários (VA, VCA & VRA)")
 
-        col1, col2, col3, col4, col5, col6, col7, col8, col9, col10 = st.columns(10)
-        col1.metric("CÓD 157219", f"{resumo['ch_157219_un']} un")
-        col2.metric("CÓD 053583", f"{resumo['ch_053583_un']} un")
-        col3.metric("CÓD 104818", f"{resumo['ch_104818_un']} un")
-        col4.metric("CÓD 157228", f"{resumo['ch_157228_un']} un")
-        col5.metric("CÓD 156102", f"{resumo['ch_156102_un']} un")
-        col6.metric("CÓD 153549", f"{resumo['ch_153549_un']} un")
-        col7.metric("CÓD 156082", f"{resumo['ch_156082_un']} un")
-        col8.metric("CÓD 151947", f"{resumo['ch_151947_un']} un")
-        col9.metric("CÓD 157101", f"{resumo['ch_157101_un']} un")
-        col10.metric("Peso Total", f"{resumo['peso_total_kg']:.2f} kg")
+        # Exibição dinâmica dos KPIs na interface do Streamlit (apenas chapas com qtd > 0)
+        candidatos_ui = [
+            ("0,8 (3900)", resumo['ch_157219_un']),
+            ("0,6 (2560)", resumo['ch_053583_un']),
+            ("0,6 (2000)", resumo['ch_104818_un']),
+            ("0,6 (3840 VRA)", resumo['ch_157228_un']),
+            ("1,2 (2960 Colunas)", resumo['ch_156102_un']),
+            ("0,4 (2540)", resumo['ch_153549_un']),
+            ("0,4 (3780)", resumo['ch_156082_un']),
+            ("0,4 (2550)", resumo['ch_151947_un']),
+            ("0,4 (2060)", resumo['ch_157101_un']),
+        ]
+        ui_ativos = [item for item in candidatos_ui if item[1] > 0]
+        
+        cols = st.columns(len(ui_ativos) + 2)
+        cols[0].metric("Total Chapas", f"{resumo['total_chapas_geral']} un")
+        for i, (label, val) in enumerate(ui_ativos, 1):
+            cols[i].metric(label, f"{val} un")
+        cols[-1].metric("Peso Total", f"{resumo['peso_total_kg']:.2f} kg")
 
         st.markdown("---")
         st.subheader("📄 Detalhamento Completo por Item")
