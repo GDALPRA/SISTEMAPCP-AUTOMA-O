@@ -48,7 +48,7 @@ else:
     BORDER_COLOR = "#CBD5E1"
     HOVER_COLOR = "#F1F5F9"
     UPLOADER_BG = "#F1F5F9"
-    LOGO_TEXT = "#0A2540"
+    LOGO_TEXT = "#2563EB"
     SLOGAN_TEXT = "#475569"
 
 # --- CSS GLOBAL DINÂMICO ---
@@ -149,19 +149,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR COM O LOGOTIPO OFICIAL NSF ---
+# Cor da tipografia NSF adaptativa (Branco no escuro, Azul Corporativo no claro)
+COR_NSF_TEXTO = "#FFFFFF" if is_dark else "#1E3A8A"
+
+# --- SIDEBAR COM A LOGO OFICIAL VETORIZADA 100% FIEL ---
 with st.sidebar:
     st.markdown(
         f"""
         <div style="text-align: center; padding: 15px 5px 10px 5px;">
-            <div style="font-size: 36px; font-weight: 900; letter-spacing: 2px; color: {LOGO_TEXT}; margin-bottom: 2px;">
-                🕊️ NSF
-            </div>
+            <svg width="220" height="70" viewBox="0 0 310 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Asa Superior Azul -->
+                <path d="M 12 28 C 30 12, 65 14, 88 42 C 68 38, 40 35, 12 28 Z" fill="#2563EB"/>
+                <!-- Cabeça e Bico Verde -->
+                <path d="M 88 42 C 96 24, 100 17, 106 12 C 97 55, 62 67, 42 62 C 62 57, 78 48, 88 42 Z" fill="#22C55E"/>
+                <!-- Base Laranja / Amarela (Cauda) -->
+                <path d="M 8 55 C 28 72, 58 68, 90 44 C 60 50, 32 52, 8 55 Z" fill="#F97316"/>
+                <path d="M 8 55 C 18 64, 38 65, 58 59 C 38 57, 24 56, 8 55 Z" fill="#EAB308"/>
+                
+                <!-- Tipografia NSF Exata -->
+                <text x="110" y="60" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="52" fill="{COR_NSF_TEXTO}" letter-spacing="2">NSF</text>
+            </svg>
+            
             <div style="margin-top: 4px; padding: 0 5px;">
-                <p style="color: {LOGO_TEXT} !important; font-size: 10px; font-weight: 800; margin: 0; letter-spacing: 0.9px; text-transform: uppercase; line-height: 1.3;">
+                <p style="color: {LOGO_TEXT} !important; font-size: 9.5px; font-weight: 800; margin: 0; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.3;">
                     TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
                 </p>
-                <p style="color: {SLOGAN_TEXT} !important; font-size: 9.5px; font-weight: 500; margin: 4px 0 0 0; line-height: 1.2;">
+                <p style="color: {SLOGAN_TEXT} !important; font-size: 9px; font-weight: 500; margin: 3px 0 0 0; line-height: 1.2;">
                     Desenvolvendo o varejo, transformando vidas.
                 </p>
             </div>
@@ -174,79 +187,3 @@ with st.sidebar:
     st.markdown(
         f"<p style='color: {SLOGAN_TEXT} !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Módulos Operacionais</p>",
         unsafe_allow_html=True,
-    )
-
-# --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA COM ÍCONES SLIM ---
-bandejas_page = st.Page(
-    "views/bandejas_pead.py",
-    title="Bandejas ABS & PEAD",
-    icon=":material/layers:",
-    default=True,
-)
-
-tubos_page = st.Page(
-    "views/calculo_tubos.py",
-    title="Cálculo de Tubos (Chassis)",
-    icon=":material/grid_on:",
-)
-
-portas_page = st.Page(
-    "views/calculo_portas.py",
-    title="Portas & Frames (VA & VAP)",
-    icon=":material/door_front:",
-)
-
-chapas_page = st.Page(
-    "views/calculo_chapas.py",
-    title="Chapas Cristal VA (Bojo/Costas/Teto)",
-    icon=":material/description:",
-)
-
-inox_page = st.Page(
-    "views/calculo_inox.py",
-    title="Chapas de Aço Inox (Expositores VA)",
-    icon=":material/shield:",
-)
-
-gerencial_page = st.Page(
-    "views/processar_of.py",
-    title="Relatórios Gerenciais (ORFAs)",
-    icon=":material/analytics:",
-)
-
-materiais_page = st.Page(
-    "views/materiais_padrao.py",
-    title="Materiais Padrão (Refrigeração)",
-    icon=":material/inventory_2:",
-)
-
-# --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
-pg = st.navigation(
-    {
-        "PLANEJAMENTO E CONTROLE (PCP)": [
-            bandejas_page,
-            tubos_page,
-            portas_page,
-            chapas_page,
-            inox_page,
-            gerencial_page,
-            materiais_page,
-        ]
-    }
-)
-
-# Rodapé minimalista na barra lateral
-with st.sidebar:
-    st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
-    st.markdown(
-        f"""
-        <div style="text-align: center; color: {SLOGAN_TEXT} !important; font-size: 10px;">
-            <p style="margin: 0; font-weight: 600; color: {LOGO_TEXT} !important;">NSF Enterprise v4.0</p>
-            <p style="margin: 2px 0 0 0;">Ambiente Integrado de Fábrica</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# Executa o roteador
-pg.run()
