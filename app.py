@@ -12,8 +12,8 @@ st.set_page_config(
 with st.sidebar:
     st.markdown(
         """
-        <div style="text-align: center; padding: 10px 0 5px 0;">
-            <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">
+        <div style="text-align: center; padding: 5px 0 2px 0;">
+            <p style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px;">
                 ⚙️ Configuração de Tema
             </p>
         </div>
@@ -149,25 +149,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR COM A LOGO OFICIAL 100% FIEL VETORIZADA ---
+# --- SIDEBAR COM O LOGOTIPO OFICIAL NSF ---
 with st.sidebar:
     st.markdown(
         f"""
         <div style="text-align: center; padding: 15px 5px 10px 5px;">
-            <svg width="220" height="75" viewBox="0 0 310 95" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Símbolo da Ave NSF (Fiel ao Original) -->
-                <!-- Asa Superior Azul -->
-                <path d="M 28 24 C 52 8, 94 11, 120 40 C 90 35, 56 33, 28 24 Z" fill="#2563EB"/>
-                <!-- Cabeça e Bico Verde -->
-                <path d="M 120 40 C 131 20, 136 13, 142 8 C 131 61, 87 75, 61 70 C 90 64, 110 52, 120 40 Z" fill="#22C55E"/>
-                <!-- Base Laranja / Amarela (Cauda) -->
-                <path d="M 22 59 C 47 82, 84 77, 123 44 C 80 53, 44 55, 22 59 Z" fill="#F97316"/>
-                <path d="M 22 59 C 35 73, 58 75, 83 68 C 55 66, 35 64, 22 59 Z" fill="#EAB308"/>
-                
-                <!-- Tipografia NSF Perfeita -->
-                <text x="146" y="63" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="58" fill="{LOGO_TEXT}" letter-spacing="2">NSF</text>
-            </svg>
-            
+            <div style="font-size: 36px; font-weight: 900; letter-spacing: 2px; color: {LOGO_TEXT}; margin-bottom: 2px;">
+                🕊️ NSF
+            </div>
             <div style="margin-top: 4px; padding: 0 5px;">
                 <p style="color: {LOGO_TEXT} !important; font-size: 10px; font-weight: 800; margin: 0; letter-spacing: 0.9px; text-transform: uppercase; line-height: 1.3;">
                     TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
