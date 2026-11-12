@@ -183,9 +183,104 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+# --- DEFINIÇÃO DA TELA INICIAL (ERP HOME) ---
+def render_home():
+    st.markdown(
+        """
+        <div style="padding: 10px 0 20px 0;">
+            <h1 style="font-size: 28px; font-weight: 800; margin-bottom: 5px;">
+                🕊️ Portal PCP Enterprise — NSF Tecnologia
+            </h1>
+            <p style="font-size: 14px; color: #94A3B8;">
+                Ambiente integrado de gestão de produção, cálculo de insumos, chapas, perfis estruturais e relatórios gerenciais para o varejo.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(label="Módulos Operacionais", value="7 Ativos", delta="PCP & Engenharia")
+    with col2:
+        st.metric(label="Linhas de Produção", value="VA, VCA & VRA", delta="Integrado")
+    with col3:
+        st.metric(label="Controle de Insumos", value="Aço, PEAD & ABS", delta="Tempo Real")
+    with col4:
+        st.metric(label="Versão do Sistema", value="v4.0 Enterprise", delta="Estável")
+
+    st.markdown("---")
+    st.subheader("🚀 Acesso Rápido aos Módulos Operacionais")
+    st.markdown("Selecione abaixo o painel desejado ou utilize o menu lateral para navegar entre as automações:")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            """
+            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
+                <h4 style="color: #60A5FA; margin-top: 0;">📦 Bandejas ABS & PEAD</h4>
+                <p style="font-size: 12px; color: #94A3B8;">Cálculo automatizado de bandejas plásticas e componentes para expositores.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            """
+            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
+                <h4 style="color: #34D399; margin-top: 0;">📐 Cálculo de Tubos (Chassis)</h4>
+                <p style="font-size: 12px; color: #94A3B8;">Gestão e dimensionamento de perfis tubulares e estruturas metálicas.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            """
+            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
+                <h4 style="color: #F472B6; margin-top: 0;">🛡️ Chapas de Aço Inox</h4>
+                <p style="font-size: 12px; color: #94A3B8;">Apuração de blanks (Inox 304 e 430) para bojos, costas, tampos e prateleiras.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("")
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        st.markdown(
+            """
+            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
+                <h4 style="color: #FBBF24; margin-top: 0;">🚪 Portas & Frames (VA & VAP)</h4>
+                <p style="font-size: 12px; color: #94A3B8;">Cálculo de perfis de PVC, molduras e portas para refrigeração comercial.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c5:
+        st.markdown(
+            """
+            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
+                <h4 style="color: #A78BFA; margin-top: 0;">📊 Relatórios Gerenciais</h4>
+                <p style="font-size: 12px; color: #94A3B8;">Processamento de ORFAs e consolidação de dados executivos para diretoria.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with c6:
+        st.markdown(
+            """
+            <div style="background-color: #131927; border: 1px solid #1E293B; border-radius: 8px; padding: 20px; height: 160px;">
+                <h4 style="color: #38BDF8; margin-top: 0;">⚙️ Materiais Padrão</h4>
+                <p style="font-size: 12px; color: #94A3B8;">Banco de insumos e parâmetros de engenharia para linhas de montagem.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 # --- DEFINIÇÃO DAS PÁGINAS DO SISTEMA ---
 home_page = st.Page(
-    "views/home_erp.py",
+    render_home,
     title="Início (Portal ERP)",
     icon=":material/dashboard:",
     default=True,
