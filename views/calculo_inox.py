@@ -74,7 +74,7 @@ def calcular_inox_geral(df_input):
         cliente = str(row.get("Name", row.get("Cliente / Projeto", "Cliente")))
         orfa = str(row.get("ORFA", row.get("OP / Pedido", f"OP-{idx+1}")))
         linha = str(row.get("LINHA", "VERTICAL ALTO")).upper()
-        alinhamento = str(row.get("ALINHAMENTO", "-"))
+        alinhamento = str(row.get("ALINHAMENTO", "-")).upper()
 
         dim_raw = row.get("DIMENSÃO", row.get("Modelo Expositor (VA)", "0"))
         try:
@@ -83,9 +83,9 @@ def calcular_inox_geral(df_input):
             dim_float = 0.0
 
         qtd = int(row.get("Quantidade (Unid)", 1))
-        is_vap = "VAP" in alinhamento.upper()
-        is_vca = "VCA" in linha or "AÇOUGUE" in linha and "VRA" not in linha
-        is_vra = "VRA" in linha
+        is_vap = "VAP" in alinhamento
+        is_vra = "VRA" in linha or "VRA" in alinhamento
+        is_vca = ("VCA" in linha or "AÇOUGUE" in linha) and not is_vra
         is_acougue = is_vca or is_vra
 
         ch_157219_item = 0.0
@@ -113,8 +113,8 @@ def calcular_inox_geral(df_input):
             if info_prat["1P"] > 0 or info_prat["2P"] > 0:
                 total_prat_pecas = ((info_prat["1P"] * 1) + (info_prat["2P"] * 2)) * qtd
                 ch_157219_item += total_prat_pecas / 6.0
-            elif " 1P" in alinhamento.upper() or " 2P" in alinhamento.upper():
-                n_niveis = 2 if " 2P" in alinhamento.upper() else 1
+            elif " 1P" in alinhamento or " 2P" in alinhamento:
+                n_niveis = 2 if " 2P" in alinhamento else 1
                 modulos_total = round(dim_float / 1.25, 2)
                 total_prat_pecas = (modulos_total * n_niveis) * qtd
                 ch_157219_item += total_prat_pecas / 6.0
@@ -389,7 +389,6 @@ def gerar_excel_estilo_tubos(df_detalhe, resumo):
 
     ws.cell(row=4, column=1, value="INDICADORES GERAIS DE INOX").font = font_section
 
-    # Montagem dinâmica dos cabeçalhos e valores do KPI (apenas chapas com quantidade > 0)
     candidatos_kpi = [
         ("0,8 (3900)", resumo["ch_157219_un"]),
         ("0,6 (2560)", resumo["ch_053583_un"]),
@@ -520,7 +519,6 @@ if uploaded_file:
         st.markdown("---")
         st.subheader("📊 Indicadores Totais de Inox Necessários (VA, VCA & VRA)")
 
-        # Exibição dinâmica dos KPIs na interface do Streamlit (apenas chapas com qtd > 0)
         candidatos_ui = [
             ("0,8 (3900)", resumo['ch_157219_un']),
             ("0,6 (2560)", resumo['ch_053583_un']),
