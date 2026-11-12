@@ -127,7 +127,7 @@ st.markdown(
             color: {TEXT_MAIN} !important;
             border: 1px solid {BORDER_COLOR} !important;
             border-radius: 10px !important;
-            padding: 15px 15px !important;
+            padding: 15px 20px !important;
             text-align: center !important;
             font-size: 14px !important;
             font-weight: 700 !important;
@@ -198,60 +198,4 @@ bandejas_page = st.Page(
 
 tubos_page = st.Page(
     "views/calculo_tubos.py",
-    title="Cálculo de Tubos (Chassis)",
-    icon=":material/grid_on:",
-)
-
-portas_page = st.Page(
-    "views/calculo_portas.py",
-    title="Portas & Frames (VA & VAP)",
-    icon=":material/door_front:",
-)
-
-chapas_page = st.Page(
-    "views/calculo_chapas.py",
-    title="Chapas Cristal VA (Bojo/Costas/Teto)",
-    icon=":material/description:",
-)
-
-inox_page = st.Page(
-    "views/calculo_inox.py",
-    title="Chapas de Aço Inox (Expositores VA)",
-    icon=":material/shield:",
-)
-
-gerencial_page = st.Page(
-    "views/processar_of.py",
-    title="Relatórios Gerenciais (ORFAs)",
-    icon=":material/analytics:",
-)
-
-materiais_page = st.Page(
-    "views/materiais_padrao.py",
-    title="Materiais Padrão (Refrigeração)",
-    icon=":material/inventory_2:",
-)
-
-# --- TELA INICIAL (DASHBOARD ERP PROFISSIONAL) ---
-def render_home():
-    st.markdown(
-        """
-        <div style="padding: 10px 0 20px 0;">
-            <h1 style="font-size: 26px; font-weight: 800; margin-bottom: 5px; display: flex; align-items: center; gap: 10px;">
-                🕊️ Portal PCP Enterprise — Painel de Controle Executivo
-            </h1>
-            <p style="font-size: 14px; color: #94A3B8; margin: 0;">
-                Sistema de Gestão de Produção, Planejamento de Insumos e Automação de Engenharia para Refrigeração Comercial.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Cards de Indicadores Estilo ERP
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    with kpi1:
-        st.markdown(
-            f"""
-            <div class="erp-kpi-card">
-                <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Módulos Ativos
+    title="Cálculo de Tubos
