@@ -8,78 +8,121 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# --- CSS GLOBAL DARK EXECUTIVO SLIM ---
+# --- GERENCIAMENTO DE TEMA (CLARO / ESCURO) ---
+with st.sidebar:
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 10px 0 5px 0;">
+            <p style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">
+                ⚙️ Configuração de Tema
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    tema_selecionado = st.selectbox(
+        "Modo de Exibição",
+        options=["Escuro (Dark)", "Claro (Light)"],
+        index=0,
+        label_visibility="collapsed",
+    )
+
+is_dark = tema_selecionado == "Escuro (Dark)"
+
+# --- PALETA DE CORES DINÂMICA ---
+if is_dark:
+    BG_APP = "#0E131F"
+    BG_SIDEBAR = "#080C14"
+    TEXT_MAIN = "#E2E8F0"
+    TEXT_MUTED = "#94A3B8"
+    BORDER_COLOR = "#1E293B"
+    HOVER_COLOR = "#172033"
+    UPLOADER_BG = "#131927"
+    LOGO_TEXT = "#FFFFFF"
+    SLOGAN_TEXT = "#64748B"
+else:
+    BG_APP = "#F8FAFC"
+    BG_SIDEBAR = "#FFFFFF"
+    TEXT_MAIN = "#1E293B"
+    TEXT_MUTED = "#475569"
+    BORDER_COLOR = "#E2E8F0"
+    HOVER_COLOR = "#F1F5F9"
+    UPLOADER_BG = "#F1F5F9"
+    LOGO_TEXT = "#0A2540"
+    SLOGAN_TEXT = "#64748B"
+
+# --- CSS GLOBAL DINÂMICO ---
 st.markdown(
-    """
+    f"""
     <style>
-        /* 1. FORÇAR MODO ESCURO ENTERPRISE NA PÁGINA INTEIRA */
-        html, body, [data-testid="stAppViewContainer"], .main {
-            background-color: #0E131F !important;
-            color: #E2E8F0 !important;
+        /* 1. FUNDO E TEXTO GERAL */
+        html, body, [data-testid="stAppViewContainer"], .main {{
+            background-color: {BG_APP} !important;
+            color: {TEXT_MAIN} !important;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-        }
+        }}
 
-        /* 2. SIDEBAR ESCURA E SLIM */
-        [data-testid="stSidebar"] {
-            background-color: #080C14 !important;
-            border-right: 1px solid #1E293B !important;
-        }
+        /* 2. SIDEBAR */
+        [data-testid="stSidebar"] {{
+            background-color: {BG_SIDEBAR} !important;
+            border-right: 1px solid {BORDER_COLOR} !important;
+        }}
 
-        [data-testid="stSidebar"] * {
-            color: #94A3B8 !important;
-        }
+        [data-testid="stSidebar"] * {{
+            color: {TEXT_MUTED} !important;
+        }}
 
         /* Título dos Grupos na Sidebar */
         [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p strong,
-        [data-testid="stSidebar"] span[data-testid="stHeader"] {
-            color: #64748B !important;
+        [data-testid="stSidebar"] span[data-testid="stHeader"] {{
+            color: {TEXT_MUTED} !important;
             font-size: 11px !important;
             letter-spacing: 1.2px !important;
             text-transform: uppercase !important;
-        }
+        }}
 
-        /* 3. ESTILIZAÇÃO DAS ABAS DE NAVEGAÇÃO */
+        /* 3. ABAS DE NAVEGAÇÃO */
         [data-testid="stSidebar"] div[role="radiogroup"] > label,
-        [data-testid="stSidebarNav"] li a {
+        [data-testid="stSidebarNav"] li a {{
             border-radius: 6px !important;
             padding: 8px 12px !important;
             margin-bottom: 2px !important;
             transition: all 0.15s ease-in-out !important;
-        }
+        }}
 
         [data-testid="stSidebar"] div[role="radiogroup"] > label:hover,
-        [data-testid="stSidebarNav"] li a:hover {
-            background-color: #172033 !important;
-        }
+        [data-testid="stSidebarNav"] li a:hover {{
+            background-color: {HOVER_COLOR} !important;
+        }}
 
         /* Item Selecionado na Sidebar */
         [data-testid="stSidebarNav"] li a[aria-current="page"],
-        [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {
-            background-color: #172033 !important;
+        [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {{
+            background-color: {HOVER_COLOR} !important;
             border-left: 3px solid #0052CC !important;
-        }
+        }}
 
         [data-testid="stSidebarNav"] li a[aria-current="page"] span,
-        [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] span {
-            color: #FFFFFF !important;
+        [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] span {{
+            color: {LOGO_TEXT} !important;
             font-weight: 600 !important;
-        }
+        }}
 
-        /* 4. DRAG & DROP E FILE UPLOADER DARK SLIM */
-        [data-testid="stFileUploader"] {
-            background-color: #131927 !important;
-            border: 1px dashed #334155 !important;
+        /* 4. DRAG & DROP E FILE UPLOADER */
+        [data-testid="stFileUploader"] {{
+            background-color: {UPLOADER_BG} !important;
+            border: 1px dashed {BORDER_COLOR} !important;
             border-radius: 8px !important;
             padding: 12px !important;
-        }
+        }}
 
-        [data-testid="stFileUploader"] section {
-            background-color: #131927 !important;
-            color: #94A3B8 !important;
-        }
+        [data-testid="stFileUploader"] section {{
+            background-color: {UPLOADER_BG} !important;
+            color: {TEXT_MUTED} !important;
+        }}
 
-        /* Botões Dark Executivos */
-        .stDownloadButton button, .stButton button[kind="primary"] {
+        /* Botões Executivos */
+        .stDownloadButton button, .stButton button[kind="primary"] {{
             background: linear-gradient(135deg, #0052CC 0%, #0A2540 100%) !important;
             color: #FFFFFF !important;
             font-weight: 500 !important;
@@ -88,29 +131,29 @@ st.markdown(
             border: 1px solid #1E40AF !important;
             padding: 8px 18px !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-        }
+        }}
 
-        .stDownloadButton button:hover, .stButton button[kind="primary"]:hover {
+        .stDownloadButton button:hover, .stButton button[kind="primary"]:hover {{
             background: linear-gradient(135deg, #0041A3 0%, #061729 100%) !important;
             border-color: #2563EB !important;
-        }
+        }}
 
-        /* Ocultar cabeçalhos desnecessários */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        .stHeader, header[data-testid="stHeader"] {
+        /* Ocultar elementos padrão desnecessários */
+        #MainMenu {{visibility: hidden;}}
+        footer {{visibility: hidden;}}
+        .stHeader, header[data-testid="stHeader"] {{
             background-color: transparent !important;
-        }
+        }}
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR COM O LOGO OFICIAL VETORIZADO NSF ---
+# --- SIDEBAR COM A LOGO OFICIAL VETORIZADA NSF ---
 with st.sidebar:
     st.markdown(
-        """
-        <div style="text-align: center; padding: 20px 0 15px 0;">
+        f"""
+        <div style="text-align: center; padding: 15px 0 10px 0;">
             <svg width="190" height="60" viewBox="0 0 280 85" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <!-- Asa Superior Azul NSF -->
                 <path d="M 25 22 C 45 8, 85 10, 108 36 C 82 32, 50 30, 25 22 Z" fill="#0052CC"/>
@@ -119,14 +162,14 @@ with st.sidebar:
                 <!-- Base Laranja / Amarela NSF -->
                 <path d="M 20 54 C 42 74, 75 70, 110 40 C 72 48, 40 50, 20 54 Z" fill="#FF8A00"/>
                 <path d="M 20 54 C 32 66, 52 68, 75 62 C 50 60, 32 58, 20 54 Z" fill="#FFC700"/>
-                <!-- Tipografia NSF -->
-                <text x="140" y="58" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="56" fill="#FFFFFF" letter-spacing="1.5">NSF</text>
+                <!-- Tipografia NSF (Dinâmica conforme o tema) -->
+                <text x="140" y="58" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="56" fill="{LOGO_TEXT}" letter-spacing="1.5">NSF</text>
             </svg>
             <div style="margin-top: 6px;">
-                <p style="color: #FFFFFF !important; font-size: 11px; font-weight: 700; margin: 0; letter-spacing: 0.8px; text-transform: uppercase;">
+                <p style="color: {LOGO_TEXT} !important; font-size: 11px; font-weight: 700; margin: 0; letter-spacing: 0.8px; text-transform: uppercase;">
                     TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
                 </p>
-                <p style="color: #64748B !important; font-size: 10px; margin: 3px 0 0 0;">
+                <p style="color: {SLOGAN_TEXT} !important; font-size: 10px; margin: 3px 0 0 0;">
                     Desenvolvendo o varejo, transformando vidas.
                 </p>
             </div>
@@ -135,9 +178,9 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    st.markdown("<hr style='border-color: #1E293B; margin: 10px 0;'>", unsafe_allow_html=True)
+    st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 10px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        "<p style='color: #64748B !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Módulos Operacionais</p>",
+        f"<p style='color: {SLOGAN_TEXT} !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Módulos Operacionais</p>",
         unsafe_allow_html=True,
     )
 
@@ -202,11 +245,11 @@ pg = st.navigation(
 
 # Rodapé minimalista na barra lateral
 with st.sidebar:
-    st.markdown("<hr style='border-color: #1E293B; margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
+    st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 15px 0 10px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        """
-        <div style="text-align: center; color: #475569 !important; font-size: 10px;">
-            <p style="margin: 0; font-weight: 600; color: #64748B !important;">NSF Enterprise v4.0</p>
+        f"""
+        <div style="text-align: center; color: {SLOGAN_TEXT} !important; font-size: 10px;">
+            <p style="margin: 0; font-weight: 600; color: {LOGO_TEXT} !important;">NSF Enterprise v4.0</p>
             <p style="margin: 2px 0 0 0;">Ambiente Integrado de Fábrica</p>
         </div>
         """,
