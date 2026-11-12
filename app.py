@@ -29,7 +29,7 @@ with st.sidebar:
 
 is_dark = tema_selecionado == "Escuro (Dark)"
 
-# --- PALETA DE CORES DINÂMICA ---
+# --- PALETA DE CORES DINÂMICA (ALTO CONTRASTE GARANTIDO) ---
 if is_dark:
     BG_APP = "#0E131F"
     BG_SIDEBAR = "#080C14"
@@ -44,12 +44,12 @@ else:
     BG_APP = "#F8FAFC"
     BG_SIDEBAR = "#FFFFFF"
     TEXT_MAIN = "#1E293B"
-    TEXT_MUTED = "#475569"
-    BORDER_COLOR = "#E2E8F0"
+    TEXT_MUTED = "#334155"
+    BORDER_COLOR = "#CBD5E1"
     HOVER_COLOR = "#F1F5F9"
     UPLOADER_BG = "#F1F5F9"
     LOGO_TEXT = "#0A2540"
-    SLOGAN_TEXT = "#64748B"
+    SLOGAN_TEXT = "#475569"
 
 # --- CSS GLOBAL DINÂMICO ---
 st.markdown(
@@ -149,27 +149,30 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR COM A LOGO OFICIAL VETORIZADA NSF ---
+# --- SIDEBAR COM A LOGO OFICIAL 100% FIEL VETORIZADA ---
 with st.sidebar:
     st.markdown(
         f"""
-        <div style="text-align: center; padding: 15px 0 10px 0;">
-            <svg width="190" height="60" viewBox="0 0 280 85" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Asa Superior Azul NSF -->
-                <path d="M 25 22 C 45 8, 85 10, 108 36 C 82 32, 50 30, 25 22 Z" fill="#0052CC"/>
-                <!-- Asa Verde Natureza NSF -->
-                <path d="M 108 36 C 118 18, 122 12, 128 8 C 118 55, 78 68, 55 64 C 80 58, 98 48, 108 36 Z" fill="#70C04B"/>
-                <!-- Base Laranja / Amarela NSF -->
-                <path d="M 20 54 C 42 74, 75 70, 110 40 C 72 48, 40 50, 20 54 Z" fill="#FF8A00"/>
-                <path d="M 20 54 C 32 66, 52 68, 75 62 C 50 60, 32 58, 20 54 Z" fill="#FFC700"/>
-                <!-- Tipografia NSF (Dinâmica conforme o tema) -->
-                <text x="140" y="58" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="56" fill="{LOGO_TEXT}" letter-spacing="1.5">NSF</text>
+        <div style="text-align: center; padding: 15px 5px 10px 5px;">
+            <svg width="220" height="75" viewBox="0 0 310 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Símbolo da Ave NSF (Fiel ao Original) -->
+                <!-- Asa Superior Azul -->
+                <path d="M 28 24 C 52 8, 94 11, 120 40 C 90 35, 56 33, 28 24 Z" fill="#2563EB"/>
+                <!-- Cabeça e Bico Verde -->
+                <path d="M 120 40 C 131 20, 136 13, 142 8 C 131 61, 87 75, 61 70 C 90 64, 110 52, 120 40 Z" fill="#22C55E"/>
+                <!-- Base Laranja / Amarela (Cauda) -->
+                <path d="M 22 59 C 47 82, 84 77, 123 44 C 80 53, 44 55, 22 59 Z" fill="#F97316"/>
+                <path d="M 22 59 C 35 73, 58 75, 83 68 C 55 66, 35 64, 22 59 Z" fill="#EAB308"/>
+                
+                <!-- Tipografia NSF Perfeita -->
+                <text x="146" y="63" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="58" fill="{LOGO_TEXT}" letter-spacing="2">NSF</text>
             </svg>
-            <div style="margin-top: 6px;">
-                <p style="color: {LOGO_TEXT} !important; font-size: 11px; font-weight: 700; margin: 0; letter-spacing: 0.8px; text-transform: uppercase;">
+            
+            <div style="margin-top: 4px; padding: 0 5px;">
+                <p style="color: {LOGO_TEXT} !important; font-size: 10px; font-weight: 800; margin: 0; letter-spacing: 0.9px; text-transform: uppercase; line-height: 1.3;">
                     TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
                 </p>
-                <p style="color: {SLOGAN_TEXT} !important; font-size: 10px; margin: 3px 0 0 0;">
+                <p style="color: {SLOGAN_TEXT} !important; font-size: 9.5px; font-weight: 500; margin: 4px 0 0 0; line-height: 1.2;">
                     Desenvolvendo o varejo, transformando vidas.
                 </p>
             </div>
