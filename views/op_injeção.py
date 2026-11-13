@@ -68,9 +68,9 @@ def processar_regras_injecao(df_raw):
     df = df.dropna(subset=["ALINHAMENTO"]).copy()
     df["DIMENSÃO"] = pd.to_numeric(df["DIMENSÃO"].astype(str).str.replace(",", "."), errors="coerce").fillna(0.0)
     df["BOJO_MAT"] = df["BOJO"].fillna("NÃO ESPECIFICADO").astype(str).str.strip().str.upper()
-    df["ALINHAMENTO_STR"] = df["ALINHAMENTO"].astype(str).str.strip().upper()
+    df["ALINHAMENTO_STR"] = df["ALINHAMENTO"].astype(str).str.strip().str.upper()
     df["ORFA_STR"] = df["ORFA"].astype(str).str.strip() if "ORFA" in df.columns else "-"
-    df["LINHA_STR"] = df["LINHA"].astype(str).str.strip().upper() if "LINHA" in df.columns else "-"
+    df["LINHA_STR"] = df["LINHA"].astype(str).str.strip().str.upper() if "LINHA" in df.columns else "-"
     df["CLIENTE_STR"] = df["NAME"].astype(str).str.strip() if "NAME" in df.columns else "-"
 
     pecas_padrao = []
