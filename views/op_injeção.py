@@ -14,7 +14,7 @@ st.markdown(
             🧪 OP de Injeção de PU (Poliol + Iso)
         </h1>
         <p style="font-size: 14px; color: #94A3B8; margin: 0;">
-            Geração de Ordem de Produção unificada (Padrão Executivo), com correção no somatório de expositores, formatação limpa para impressão e filtro dinâmico.
+            Geração de Ordem de Produção unificada (Padrão Executivo), com formatação limpa em fundo branco para impressão, data exata e filtro dinâmico de linhas.
         </p>
     </div>
     """,
@@ -100,7 +100,7 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     for idx, row in df.iterrows():
         alinhamento = row["ALINHAMENTO_STR"]
-        dimensao = row["DIMENSÃO" if "DIMENSÃO" in df.columns else "DIMENSAO"]
+        dimensao = row["DIMENSAO"]
         mat_bojo = row["BOJO_MAT"]
         orfa = row["ORFA_STR"]
         linha_orig = row["LINHA_STR"]
@@ -112,9 +112,7 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
         modelo_limpo = re.sub(r"^\d+(\.\d+)?\s*", "", alinhamento).strip()
         is_especial = any(termo in modelo_limpo for termo in termos_especiais)
 
-        # Regista o expositor único para somatório de quantidade de expositores por dimensão
         if not is_especial:
-            # Identifica a linha de produto padrão correspondente
             if modelo_limpo.startswith("VRA"):
                 l_prod = "AÇOUGUE (VRA)"
             elif modelo_limpo.startswith("VCA"):
@@ -198,7 +196,6 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
                 
         df_resumo_linha["TOTAL_GERAL"] = df_resumo_linha[["1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS"]].sum(axis=1)
 
-        # Correção do somatório: conta exatamente o número de expositores únicos por dimensão e linha
         if not df_exp.empty:
             df_dimensoes_linha = df_exp.groupby(
                 ["LINHA_PRODUTO", "DIMENSAO"], as_index=False
@@ -217,7 +214,7 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     return df_op_consolidada, df_resumo_linha, df_dimensoes_linha, df_rastreio, df_excecoes
 
-# --- GERADOR DE EXCEL UNIFICADO (PADRÃO EXECUTIVO CORRIGIDO) ---
+# --- GERADOR DE EXCEL UNIFICADO (FUNDO BRANCO LIMPO PARA DADOS) ---
 def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, resp_pcp):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -283,7 +280,9 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
             pd.DataFrame({"Status": ["Nenhum expositor especial/exceção nesta programação."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
 
         header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+        white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
         header_font = Font(name="Calibri", size=11, color="FFFFFF", bold=True)
+        data_font = Font(name="Calibri", size=11, color="000000")
         thin_border = Border(
             left=Side(style="thin", color="D1D5DB"),
             right=Side(style="thin", color="D1D5DB"),
@@ -294,15 +293,15 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         ws_op = wb["OP_Injecao_PU"]
         for row in ws_op.iter_rows(min_row=1, max_row=ws_op.max_row):
             for cell in row:
-                # Verifica se a célula é cabeçalho de tabela
-                if cell.value in ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO", "QTD_UNITARIA", "QTD_TOTAL", "ORFAS", "ORFA", "CLIENTE", "ALINHAMENTO", "BOJO_INDICADO", "MOTIVO_ATENCAO", "1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS", "TOTAL_GERAL", "QTD_EXPOSITORES"]:
+                if cell.value in ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO", "QTD_UNITARIA", "QTD_TOTAL", "ORFAS", "ORFA", "CLIENTE", "ALINHAMENTO", "BOJO_INDICADO", "MOTIVO_ATENCAO", "1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS", "TOTAL_GERAL", "QTD_EXPOSITORES", "LINHA_PLANILHA"]:
                     cell.fill = header_fill
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal="center", vertical="center")
-                elif cell.row >= 7:
-                    # Aplica borda e fundo padrão branco para todas as células de dados (evitando fundo azul indesejado)
+                elif cell.row >= 7 and cell.value is not None:
+                    # Aplica rigorosamente fundo branco em todas as células de dados para otimizar a impressão
                     cell.border = thin_border
-                    cell.fill = PatternFill(fill_type=None)
+                    cell.fill = white_fill
+                    cell.font = data_font
                     cell.alignment = Alignment(horizontal="center", vertical="center")
 
         for col in ws_op.columns:
@@ -397,7 +396,7 @@ if uploaded_file is not None:
         st.markdown("<br>", unsafe_allow_html=True)
         excel_bytes = gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, responsavel_pcp)
         st.download_button(
-            label="📥 Baixar OP de Injeção Executiva (Padrão Unificado)",
+            label="📥 Baixar OP de Injeção Executiva (Fundo Branco Limpo)",
             data=excel_bytes,
             file_name="OP_Injecao_PU_Executiva.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -407,4 +406,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Erro ao processar o arquivo: {e}")
 else:
-    st.info("💡 Faça o upload da programação para gerar a OP executiva com filtro de linhas e somatório correto por dimensões.")
+    st.info("💡 Faça o upload da programação para gerar a OP executiva com fundo branco para impressão e data exata.")
