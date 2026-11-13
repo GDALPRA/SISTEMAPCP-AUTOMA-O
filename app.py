@@ -305,7 +305,7 @@ def render_home():
         unsafe_allow_html=True,
     )
 
-    # Grid de Acesso Rápido com 3 Colunas (Alinhadas, Tamanhos Iguais e Simétricas para as 7 páginas)
+    # Grid de Acesso Rápido com 3 Colunas perfeitamente alinhadas (3 na col1, 2 na col2, 2 na col3)
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -314,6 +314,9 @@ def render_home():
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
         if st.button("🚪 Portas & Frames (VA & VAP)", key="btn_portas"):
             st.switch_page(portas_page)
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("⚙️ Materiais Padrão", key="btn_materiais"):
+            st.switch_page(materiais_page)
 
     with col2:
         if st.button("📐 Cálculo de Tubos (Chassis)", key="btn_tubos"):
@@ -328,14 +331,6 @@ def render_home():
         st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
         if st.button("📊 Relatórios Gerenciais (ORFAs)", key="btn_gerencial"):
             st.switch_page(gerencial_page)
-
-    st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
-    
-    # 7º Botão centralizado na grade, mantendo exatamente o mesmo tamanho e padrão
-    c_left, c_center, c_right = st.columns(3)
-    with c_center:
-        if st.button("⚙️ Materiais Padrão", key="btn_materiais"):
-            st.switch_page(materiais_page)
 
 home_page = st.Page(
     render_home,
