@@ -13,7 +13,7 @@ st.markdown(
             🧪 OP de Injeção de PU (Poliol + Iso)
         </h1>
         <p style="font-size: 14px; color: #94A3B8; margin: 0;">
-            Geração de Ordem de Produção unificada, com separação clara por grupos (Bojos, Costas, Tetos-Tampos), campo de responsável do PCP e rastreabilidade completa.
+            Geração de Ordem de Produção unificada (Padrão Executivo), com filtro dinâmico de linhas, separação por grupos e somatório por dimensões.
         </p>
     </div>
     """,
@@ -21,7 +21,7 @@ st.markdown(
 )
 
 # --- ENTRADA DO RESPONSÁVEL DO PCP ---
-responsavel_pcp = st.text_input("👤 Nome do Responsável pela Programação (PCP)", value="Equipe de PCP")
+responsavel_pcp = st.text_input("👤 Nome do Responsável pela Programação (PCP)", value="Gabriel Dalpra")
 
 # --- FUNÇÃO AUXILIAR PARA LEITURA DE PDF OU EXCEL ---
 def carregar_dados(uploaded_file):
@@ -60,7 +60,7 @@ def carregar_dados(uploaded_file):
             st.stop()
 
 # --- MOTOR DE REGRAS DE ENGENHARIA (INJEÇÃO DE PU) ---
-def processar_regras_injecao(df_raw):
+def processar_regras_injecao(df_raw, linhas_selecionadas=None):
     df = df_raw.copy()
     df.columns = [str(c).strip().upper() for c in df.columns]
 
@@ -74,7 +74,7 @@ def processar_regras_injecao(df_raw):
     df["BOJO_MAT"] = df["BOJO"].fillna("NÃO ESPECIFICADO").astype(str).str.strip().str.upper()
     df["ALINHAMENTO_STR"] = df["ALINHAMENTO"].astype(str).str.strip().str.upper()
     df["ORFA_STR"] = df["ORFA"].astype(str).str.strip() if "ORFA" in df.columns else "-"
-    df["LINHA_STR"] = df["LINHA"].astype(str).str.strip().str.upper() if "LINHA" in df.columns else "-"
+    df["LINHA_STR"] = df["LINHA"].astype(str).str.strip().str.upper() if "LINHA" in df.columns else "GERAL"
     df["CLIENTE_STR"] = df["NAME"].astype(str).str.strip() if "NAME" in df.columns else "-"
 
     pecas_padrao = []
@@ -89,6 +89,10 @@ def processar_regras_injecao(df_raw):
         orfa = row["ORFA_STR"]
         linha_orig = row["LINHA_STR"]
         cliente = row["CLIENTE_STR"]
+
+        # Se o usuário aplicou filtro de linha na interface, pula o que não foi selecionado
+        if linhas_selecionadas and linha_orig not in linhas_selecionadas:
+            continue
 
         modelo_limpo = re.sub(r"^\d+(\.\d+)?\s*", "", alinhamento).strip()
         is_especial = any(termo in modelo_limpo for termo in termos_especiais)
@@ -140,7 +144,7 @@ def processar_regras_injecao(df_raw):
     df_excecoes = pd.DataFrame(excecoes_supervisor)
 
     if not df_pecas.empty:
-        # Tabela 1: Detalhado ordenado por Grupo de Peça (Bojos, Costas, Tetos-Tampos)
+        # Tabela 1: Detalhado ordenado por Grupo de Peça
         df_op_consolidada = df_pecas.groupby(
             ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO"], as_index=False
         ).agg(
@@ -162,17 +166,25 @@ def processar_regras_injecao(df_raw):
                 
         df_resumo_linha["TOTAL_GERAL"] = df_resumo_linha[["1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS"]].sum(axis=1)
 
-        # Tabela 3: Rastreabilidade (De onde veio cada item / Expositor)
+        # Tabela 3: Somatório por Dimensão e Linha de Expositores Programados
+        df_dimensoes_linha = df_pecas.groupby(
+            ["LINHA_PRODUTO", "DIMENSÃO"], as_index=False
+        ).agg(
+            QTD_EXPOSITORES=("ORFA", "count")
+        ).sort_values(by=["LINHA_PRODUTO", "DIMENSÃO"])
+
+        # Tabela 4: Rastreabilidade
         df_rastreio = df_pecas[["ORFA", "CLIENTE", "LINHA_PRODUTO", "ALINHAMENTO", "DIMENSAO"]].drop_duplicates().sort_values(by=["ORFA", "LINHA_PRODUTO"])
     else:
         df_op_consolidada = pd.DataFrame()
         df_resumo_linha = pd.DataFrame()
+        df_dimensoes_linha = pd.DataFrame()
         df_rastreio = pd.DataFrame()
 
-    return df_op_consolidada, df_resumo_linha, df_rastreio, df_excecoes
+    return df_op_consolidada, df_resumo_linha, df_dimensoes_linha, df_rastreio, df_excecoes
 
-# --- GERADOR DE EXCEL UNIFICADO (UMA SÓ ABA) ---
-def gerar_excel_op_unificado(df_op, df_resumo, df_rastreio, df_excecoes, resp_pcp):
+# --- GERADOR DE EXCEL UNIFICADO (PADRÃO EXECUTIVO) ---
+def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, resp_pcp):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         wb = writer.book
@@ -180,7 +192,7 @@ def gerar_excel_op_unificado(df_op, df_resumo, df_rastreio, df_excecoes, resp_pc
         if "Sheet" in wb.sheetnames:
             wb.remove(wb["Sheet"])
 
-        # Cabeçalho Corporativo da OP
+        # Cabeçalho Executivo
         ws["A1"] = "EMPRESA:"
         ws["B1"] = "NSF TECNOLOGIA EM INSTALAÇÕES COMERCIAIS"
         ws["A2"] = "SETOR DE DESTINO:"
@@ -198,47 +210,51 @@ def gerar_excel_op_unificado(df_op, df_resumo, df_rastreio, df_excecoes, resp_pc
 
         current_row = 7
 
-        # 1. Relatório Detalhado (Separado por Grupos)
-        ws[f"A{current_row - 1}"] = "1. RELATÓRIO DETALHADO DE ORDENS DE PRODUÇÃO (SEPARADO POR GRUPOS)"
+        # 1. Detalhado por Grupos
+        ws[f"A{current_row - 1}"] = "1. RELATÓRIO DETALHADO DE ORDENS DE PRODUÇÃO (BOJOS, COSTAS, TETOS-TAMPOS)"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-
         if not df_op.empty:
             df_op.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
             current_row += len(df_op) + 3
         else:
-            pd.DataFrame({"Aviso": ["Nenhuma peça padrão identificada."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
-            current_row += 5
+            current_row += 3
 
-        # 2. Resumo Consolidado por Linha
+        # 2. Resumo por Linha
         ws[f"A{current_row - 1}"] = "2. RESUMO CONSOLIDADO POR LINHA DE PRODUÇÃO"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-
         if not df_resumo.empty:
             df_resumo.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
             current_row += len(df_resumo) + 3
         else:
             current_row += 3
 
-        # 3. Rastreabilidade de Expositores
-        ws[f"A{current_row - 1}"] = "3. RASTREABILIDADE: ORIGEM DOS EXPOSITORES E ITENS PUXADOS"
+        # 3. Somatório por Dimensão de Expositor
+        ws[f"A{current_row - 1}"] = "3. SOMATÓRIO DE EXPOSITORES PROGRAMADOS POR LINHA E DIMENSÃO"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
+        if not df_dimensoes.empty:
+            df_dimensoes.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
+            current_row += len(df_dimensoes) + 3
+        else:
+            current_row += 3
 
+        # 4. Rastreabilidade
+        ws[f"A{current_row - 1}"] = "4. RASTREABILIDADE: ORIGEM DOS EXPOSITORES"
+        ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
         if not df_rastreio.empty:
             df_rastreio.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
             current_row += len(df_rastreio) + 3
         else:
             current_row += 3
 
-        # 4. Exceções / Supervisão (na mesma aba, no rodapé)
-        ws[f"A{current_row - 1}"] = "4. ITENS ESPECIAIS / ATENÇÃO DO SUPERVISOR (CANTOS, CT 180, CENTRAIS)"
+        # 5. Exceções / Supervisão
+        ws[f"A{current_row - 1}"] = "5. ITENS ESPECIAIS / ATENÇÃO DO SUPERVISOR (CANTOS, CT 180, CENTRAIS)"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="B45309")
-
         if not df_excecoes.empty:
             df_excecoes.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
         else:
             pd.DataFrame({"Status": ["Nenhum expositor especial/exceção nesta programação."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
 
-        # Estilização visual profissional
+        # Estilização Padrão Executivo (Cores Azul Corporativo)
         header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
         header_font = Font(name="Calibri", size=11, color="FFFFFF", bold=True)
         thin_border = Border(
@@ -251,7 +267,7 @@ def gerar_excel_op_unificado(df_op, df_resumo, df_rastreio, df_excecoes, resp_pc
         ws_op = wb["OP_Injecao_PU"]
         for row in ws_op.iter_rows(min_row=1, max_row=ws_op.max_row):
             for cell in row:
-                if cell.value in ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO", "QTD_UNITARIA", "QTD_TOTAL", "ORFAS", "ORFA", "CLIENTE", "ALINHAMENTO", "DIMENSAO", "BOJO_INDICADO", "MOTIVO_ATENCAO", "1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS", "TOTAL_GERAL"]:
+                if cell.value in ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO", "QTD_UNITARIA", "QTD_TOTAL", "ORFAS", "ORFA", "CLIENTE", "ALINHAMENTO", "BOJO_INDICADO", "MOTIVO_ATENCAO", "1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS", "TOTAL_GERAL", "QTD_EXPOSITORES"]:
                     cell.fill = header_fill
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -275,8 +291,26 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     try:
         df_entrada = carregar_dados(uploaded_file)
-        df_op, df_resumo, df_rastreio, df_excecoes = processar_regras_injecao(df_entrada)
+        
+        # Identifica as linhas disponíveis no arquivo importado para o filtro
+        df_temp = df_entrada.copy()
+        df_temp.columns = [str(c).strip().upper() for c in df_temp.columns]
+        linhas_disponiveis = sorted(df_temp["LINHA"].astype(str).str.strip().str.upper().unique().tolist()) if "LINHA" in df_temp.columns else []
 
+        st.markdown("---")
+        if linhas_disponiveis:
+            st.markdown("### 🎛️ Filtro de Linhas de Produção")
+            linhas_selecionadas = st.multiselect(
+                "Selecione as Linhas de Fábrica que deseja processar (deixe em branco para incluir todas):",
+                options=linhas_disponiveis,
+                default=linhas_disponiveis
+            )
+        else:
+            linhas_selecionadas = []
+
+        df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes = processar_regras_injecao(df_entrada, linhas_selecionadas)
+
+        st.markdown("---")
         k1, k2, k3 = st.columns(3)
         total_pecas = int(df_op["QTD_TOTAL"].sum()) if not df_op.empty else 0
         total_bojos = int(df_op[df_op["GRUPO_PECA"] == "1. BOJOS"]["QTD_TOTAL"].sum()) if not df_op.empty else 0
@@ -288,12 +322,12 @@ if uploaded_file is not None:
 
         st.markdown("---")
 
-        tab_op, tab_resumo, tab_rastreio, tab_especiais, tab_bruto = st.tabs([
+        tab_op, tab_resumo, tab_dim, tab_rastreio, tab_especiais = st.tabs([
             "📋 OP Detalhada por Grupos",
             "📊 Resumo por Linha",
+            "📐 Somatório por Dimensão",
             "🔍 Rastreabilidade",
-            f"⚠️ Especiais / Supervisão ({total_especiais})",
-            "📄 Programação Original"
+            f"⚠️ Especiais ({total_especiais})"
         ])
 
         with tab_op:
@@ -308,6 +342,12 @@ if uploaded_file is not None:
             else:
                 st.warning("Sem dados para o resumo.")
 
+        with tab_dim:
+            if not df_dimensoes.empty:
+                st.dataframe(df_dimensoes, use_container_width=True, hide_index=True)
+            else:
+                st.warning("Sem dados de dimensões.")
+
         with tab_rastreio:
             if not df_rastreio.empty:
                 st.dataframe(df_rastreio, use_container_width=True, hide_index=True)
@@ -321,15 +361,12 @@ if uploaded_file is not None:
             else:
                 st.success("✅ Nenhum item especial encontrado.")
 
-        with tab_bruto:
-            st.dataframe(df_entrada, use_container_width=True, hide_index=True)
-
         st.markdown("<br>", unsafe_allow_html=True)
-        excel_bytes = gerar_excel_op_unificado(df_op, df_resumo, df_rastreio, df_excecoes, responsavel_pcp)
+        excel_bytes = gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, responsavel_pcp)
         st.download_button(
-            label="📥 Baixar OP de Injeção Completa (Tudo em 1 Aba)",
+            label="📥 Baixar OP de Injeção Executiva (Padrão Unificado)",
             data=excel_bytes,
-            file_name="OP_Injecao_PU_Unificada.xlsx",
+            file_name="OP_Injecao_PU_Executiva.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
         )
@@ -337,4 +374,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Erro ao processar o arquivo: {e}")
 else:
-    st.info("💡 Faça o upload da programação para gerar a OP unificada com separação de grupos, nome do programador e rastreabilidade.")
+    st.info("💡 Faça o upload da programação para gerar a OP executiva com filtro de linhas e somatório por dimensões.")
