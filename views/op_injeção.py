@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import re
+import unicodedata
 from datetime import datetime
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -13,7 +14,7 @@ st.markdown(
             🧪 OP de Injeção de PU (Poliol + Iso)
         </h1>
         <p style="font-size: 14px; color: #94A3B8; margin: 0;">
-            Geração de Ordem de Produção unificada (Padrão Executivo), com filtro dinâmico de linhas, separação por grupos e somatório por dimensões.
+            Geração de Ordem de Produção unificada (Padrão Executivo), com normalização de acentos, filtro dinâmico de linhas e somatório por dimensões.
         </p>
     </div>
     """,
@@ -22,6 +23,13 @@ st.markdown(
 
 # --- ENTRADA DO RESPONSÁVEL DO PCP ---
 responsavel_pcp = st.text_input("👤 Nome do Responsável pela Programação (PCP)", value="Gabriel Dalpra")
+
+# --- FUNÇÃO AUXILIAR PARA NORMALIZAR TEXTO (REMOVER ACENTOS) ---
+def normalizar_texto(texto):
+    if not isinstance(texto, str):
+        return str(texto)
+    nfkd = unicodedata.normalize('NFKD', texto)
+    return "".join([c for c in nfkd if not unicodedata.combining(c)]).strip().upper()
 
 # --- FUNÇÃO AUXILIAR PARA LEITURA DE PDF OU EXCEL ---
 def carregar_dados(uploaded_file):
@@ -45,12 +53,12 @@ def carregar_dados(uploaded_file):
             
             header_idx = 0
             for idx, r in enumerate(linhas_extraidas):
-                row_upper = [str(c).upper() for c in r]
+                row_upper = [normalizar_texto(str(c)) for c in r]
                 if "ALINHAMENTO" in row_upper or "ORFA" in row_upper:
                     header_idx = idx
                     break
             
-            headers = [str(c).strip().upper() for c in linhas_extraidas[header_idx]]
+            headers = [normalizar_texto(str(c)) for c in linhas_extraidas[header_idx]]
             data = linhas_extraidas[header_idx + 1:]
             df_pdf = pd.DataFrame(data, columns=headers)
             df_pdf = df_pdf[df_pdf.iloc[:, 0].astype(str).str.upper() != headers[0]]
@@ -62,15 +70,23 @@ def carregar_dados(uploaded_file):
 # --- MOTOR DE REGRAS DE ENGENHARIA (INJEÇÃO DE PU) ---
 def processar_regras_injecao(df_raw, linhas_selecionadas=None):
     df = df_raw.copy()
-    df.columns = [str(c).strip().upper() for c in df.columns]
+    
+    # Normaliza todas as colunas (remove acentos e converte para maiúsculas)
+    novo_mapa_colunas = {}
+    for c in df.columns:
+        col_norm = normalizar_texto(str(c))
+        if "DIMEN" in col_norm:
+            col_norm = "DIMENSAO"
+        novo_mapa_colunas[c] = col_norm
+    df = df.rename(columns=novo_mapa_colunas)
 
-    colunas_necessarias = ["ALINHAMENTO", "DIMENSÃO", "BOJO"]
+    colunas_necessarias = ["ALINHAMENTO", "DIMENSAO", "BOJO"]
     for col in colunas_necessarias:
         if col not in df.columns:
             raise ValueError(f"Coluna obrigatória '{col}' não encontrada no arquivo. Colunas detectadas: {list(df.columns)}")
 
     df = df.dropna(subset=["ALINHAMENTO"]).copy()
-    df["DIMENSÃO"] = pd.to_numeric(df["DIMENSÃO"].astype(str).str.replace(",", "."), errors="coerce").fillna(0.0)
+    df["DIMENSAO"] = pd.to_numeric(df["DIMENSAO"].astype(str).str.replace(",", "."), errors="coerce").fillna(0.0)
     df["BOJO_MAT"] = df["BOJO"].fillna("NÃO ESPECIFICADO").astype(str).str.strip().str.upper()
     df["ALINHAMENTO_STR"] = df["ALINHAMENTO"].astype(str).str.strip().str.upper()
     df["ORFA_STR"] = df["ORFA"].astype(str).str.strip() if "ORFA" in df.columns else "-"
@@ -84,13 +100,12 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     for _, row in df.iterrows():
         alinhamento = row["ALINHAMENTO_STR"]
-        dimensao = row["DIMENSÃO"]
+        dimensao = row["DIMENSAO"]
         mat_bojo = row["BOJO_MAT"]
         orfa = row["ORFA_STR"]
         linha_orig = row["LINHA_STR"]
         cliente = row["CLIENTE_STR"]
 
-        # Se o usuário aplicou filtro de linha na interface, pula o que não foi selecionado
         if linhas_selecionadas and linha_orig not in linhas_selecionadas:
             continue
 
@@ -144,7 +159,6 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
     df_excecoes = pd.DataFrame(excecoes_supervisor)
 
     if not df_pecas.empty:
-        # Tabela 1: Detalhado ordenado por Grupo de Peça
         df_op_consolidada = df_pecas.groupby(
             ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO"], as_index=False
         ).agg(
@@ -153,7 +167,6 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
             ORFAS=("ORFA", lambda x: ", ".join(sorted(set(x))))
         ).sort_values(by=["GRUPO_PECA", "LINHA_PRODUTO", "MATERIAL", "DIMENSAO"])
 
-        # Tabela 2: Resumo por Linha de Produção
         df_resumo_linha = df_pecas.groupby(
             ["LINHA_PRODUTO", "GRUPO_PECA"], as_index=False
         ).agg(
@@ -166,14 +179,12 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
                 
         df_resumo_linha["TOTAL_GERAL"] = df_resumo_linha[["1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS"]].sum(axis=1)
 
-        # Tabela 3: Somatório por Dimensão e Linha de Expositores Programados
         df_dimensoes_linha = df_pecas.groupby(
-            ["LINHA_PRODUTO", "DIMENSÃO"], as_index=False
+            ["LINHA_PRODUTO", "DIMENSAO"], as_index=False
         ).agg(
             QTD_EXPOSITORES=("ORFA", "count")
-        ).sort_values(by=["LINHA_PRODUTO", "DIMENSÃO"])
+        ).sort_values(by=["LINHA_PRODUTO", "DIMENSAO"])
 
-        # Tabela 4: Rastreabilidade
         df_rastreio = df_pecas[["ORFA", "CLIENTE", "LINHA_PRODUTO", "ALINHAMENTO", "DIMENSAO"]].drop_duplicates().sort_values(by=["ORFA", "LINHA_PRODUTO"])
     else:
         df_op_consolidada = pd.DataFrame()
@@ -192,7 +203,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         if "Sheet" in wb.sheetnames:
             wb.remove(wb["Sheet"])
 
-        # Cabeçalho Executivo
         ws["A1"] = "EMPRESA:"
         ws["B1"] = "NSF TECNOLOGIA EM INSTALAÇÕES COMERCIAIS"
         ws["A2"] = "SETOR DE DESTINO:"
@@ -210,7 +220,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
 
         current_row = 7
 
-        # 1. Detalhado por Grupos
         ws[f"A{current_row - 1}"] = "1. RELATÓRIO DETALHADO DE ORDENS DE PRODUÇÃO (BOJOS, COSTAS, TETOS-TAMPOS)"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
         if not df_op.empty:
@@ -219,7 +228,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         else:
             current_row += 3
 
-        # 2. Resumo por Linha
         ws[f"A{current_row - 1}"] = "2. RESUMO CONSOLIDADO POR LINHA DE PRODUÇÃO"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
         if not df_resumo.empty:
@@ -228,7 +236,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         else:
             current_row += 3
 
-        # 3. Somatório por Dimensão de Expositor
         ws[f"A{current_row - 1}"] = "3. SOMATÓRIO DE EXPOSITORES PROGRAMADOS POR LINHA E DIMENSÃO"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
         if not df_dimensoes.empty:
@@ -237,7 +244,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         else:
             current_row += 3
 
-        # 4. Rastreabilidade
         ws[f"A{current_row - 1}"] = "4. RASTREABILIDADE: ORIGEM DOS EXPOSITORES"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
         if not df_rastreio.empty:
@@ -246,7 +252,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         else:
             current_row += 3
 
-        # 5. Exceções / Supervisão
         ws[f"A{current_row - 1}"] = "5. ITENS ESPECIAIS / ATENÇÃO DO SUPERVISOR (CANTOS, CT 180, CENTRAIS)"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="B45309")
         if not df_excecoes.empty:
@@ -254,7 +259,6 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         else:
             pd.DataFrame({"Status": ["Nenhum expositor especial/exceção nesta programação."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
 
-        # Estilização Padrão Executivo (Cores Azul Corporativo)
         header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
         header_font = Font(name="Calibri", size=11, color="FFFFFF", bold=True)
         thin_border = Border(
@@ -292,9 +296,13 @@ if uploaded_file is not None:
     try:
         df_entrada = carregar_dados(uploaded_file)
         
-        # Identifica as linhas disponíveis no arquivo importado para o filtro
+        # Identifica as linhas disponíveis no arquivo
         df_temp = df_entrada.copy()
-        df_temp.columns = [str(c).strip().upper() for c in df_temp.columns]
+        for c in df_temp.columns:
+            if "LINHA" in normalizar_texto(str(c)):
+                df_temp = df_temp.rename(columns={c: "LINHA"})
+                break
+        
         linhas_disponiveis = sorted(df_temp["LINHA"].astype(str).str.strip().str.upper().unique().tolist()) if "LINHA" in df_temp.columns else []
 
         st.markdown("---")
