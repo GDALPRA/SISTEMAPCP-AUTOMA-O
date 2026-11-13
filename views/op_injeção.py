@@ -39,7 +39,6 @@ def carregar_dados(uploaded_file):
             if not linhas_extraidas:
                 raise ValueError("Nenhuma tabela estruturada foi encontrada no PDF.")
             
-            # Localiza o cabeçalho padrão
             header_idx = 0
             for idx, r in enumerate(linhas_extraidas):
                 row_upper = [str(c).upper() for c in r]
@@ -50,7 +49,6 @@ def carregar_dados(uploaded_file):
             headers = [str(c).strip().upper() for c in linhas_extraidas[header_idx]]
             data = linhas_extraidas[header_idx + 1:]
             df_pdf = pd.DataFrame(data, columns=headers)
-            # Remove repetições de cabeçalho em quebras de página
             df_pdf = df_pdf[df_pdf[headers[0]].str.upper() != headers[0]]
             return df_pdf
         except ImportError:
@@ -59,7 +57,6 @@ def carregar_dados(uploaded_file):
 
 # --- MOTOR DE REGRAS DE ENGENHARIA (INJEÇÃO DE PU) ---
 def processar_regras_injecao(df_raw):
-    # Padroniza nomes das colunas
     df = df_raw.copy()
     df.columns = [str(c).strip().upper() for c in df.columns]
 
@@ -68,7 +65,6 @@ def processar_regras_injecao(df_raw):
         if col not in df.columns:
             raise ValueError(f"Coluna obrigatória '{col}' não encontrada no arquivo. Colunas detectadas: {list(df.columns)}")
 
-    # Limpeza básica
     df = df.dropna(subset=["ALINHAMENTO"]).copy()
     df["DIMENSÃO"] = pd.to_numeric(df["DIMENSÃO"].astype(str).str.replace(",", "."), errors="coerce").fillna(0.0)
     df["BOJO_MAT"] = df["BOJO"].fillna("NÃO ESPECIFICADO").astype(str).str.strip().str.upper()
@@ -80,7 +76,6 @@ def processar_regras_injecao(df_raw):
     pecas_padrao = []
     excecoes_supervisor = []
 
-    # Palavras-chave que desqualificam o VIL linear e mandam para Especiais
     termos_especiais = ["CANTO", "CT 180", "CT180", "CENTRAL", "PONTA", "90", "180"]
 
     for _, row in df.iterrows():
@@ -91,10 +86,7 @@ def processar_regras_injecao(df_raw):
         linha_orig = row["LINHA_STR"]
         cliente = row["CLIENTE_STR"]
 
-        # Extrai o código do modelo removendo numeração inicial (ex: "12.1 VABP/850" -> "VABP/850")
         modelo_limpo = re.sub(r"^\d+(\.\d+)?\s*", "", alinhamento).strip()
-
-        # Verifica se contém termos de expositores especiais
         is_especial = any(termo in modelo_limpo for termo in termos_especiais)
 
         # 1. REGRA VRA (Açougue)
@@ -108,24 +100,24 @@ def processar_regras_injecao(df_raw):
             pecas_padrao.append({"LINHA_PRODUTO": "AÇOUGUE (VCA)", "TIPO_PECA": "BOJO VCA", "MODELO_PECA": f"BOJO VCA - {mat_bojo}", "MATERIAL": mat_bojo, "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
             pecas_padrao.append({"LINHA_PRODUTO": "AÇOUGUE (VCA)", "TIPO_PECA": "TAMPO VCA", "MODELO_PECA": "TAMPOS VCA", "MATERIAL": "PADRÃO", "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
 
-        # 3. REGRA VA (Vertical Alto - começa com VA, excluindo VRA/VCA já filtrados acima)
+        # 3. REGRA VA (Vertical Alto)
         elif modelo_limpo.startswith("VA") and not is_especial:
             pecas_padrao.append({"LINHA_PRODUTO": "VERTICAL ALTO (VA)", "TIPO_PECA": "BOJO VA", "MODELO_PECA": f"BOJO VA - {mat_bojo}", "MATERIAL": mat_bojo, "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
             pecas_padrao.append({"LINHA_PRODUTO": "VERTICAL ALTO (VA)", "TIPO_PECA": "COSTAS VA", "MODELO_PECA": "COSTAS VA", "MATERIAL": "PADRÃO", "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
             pecas_padrao.append({"LINHA_PRODUTO": "VERTICAL ALTO (VA)", "TIPO_PECA": "TETO VA", "MODELO_PECA": "TETOS VA", "MATERIAL": "PADRÃO", "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
 
-        # 4. REGRA VR (Padaria - utiliza BOJO VILXVR e COSTAS VRP)
+        # 4. REGRA VR (Padaria)
         elif modelo_limpo.startswith("VR") and not is_especial:
             pecas_padrao.append({"LINHA_PRODUTO": "PADARIA (VR)", "TIPO_PECA": "BOJO VILXVR", "MODELO_PECA": f"BOJO VILXVR - {mat_bojo}", "MATERIAL": mat_bojo, "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
             pecas_padrao.append({"LINHA_PRODUTO": "PADARIA (VR)", "TIPO_PECA": "COSTAS VRP", "MODELO_PECA": "COSTAS VRP", "MATERIAL": "PADRÃO", "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
 
-        # 5. REGRA VIL LINEAR (VIL-2P ou VIL-3P sem canto, CT 180 ou central)
+        # 5. REGRA VIL LINEAR
         elif modelo_limpo.startswith("VIL") and not is_especial and ("2P" in modelo_limpo or "3P" in modelo_limpo):
             variante_costas = "COSTAS VIL 3P" if "3P" in modelo_limpo else "COSTAS VIL 2P"
             pecas_padrao.append({"LINHA_PRODUTO": "LINHA VIL (LINEAR)", "TIPO_PECA": "BOJO VILXVR", "MODELO_PECA": f"BOJO VILXVR - {mat_bojo}", "MATERIAL": mat_bojo, "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
             pecas_padrao.append({"LINHA_PRODUTO": "LINHA VIL (LINEAR)", "TIPO_PECA": "COSTAS VIL", "MODELO_PECA": variante_costas, "MATERIAL": "PADRÃO", "DIMENSAO": dimensao, "QTD": 1, "ORFA": orfa})
 
-        # 6. EXCEÇÕES / ESPECIAIS (VIL Canto 90, CT 180, Central, VC2P, etc.)
+        # 6. EXCEÇÕES / ESPECIAIS
         else:
             motivo = "VIL Especial (Canto / CT 180 / Central)" if modelo_limpo.startswith("VIL") else "Sigla / Modelo Fora do Padrão Linear"
             excecoes_supervisor.append({
@@ -157,19 +149,16 @@ def processar_regras_injecao(df_raw):
 def gerar_excel_op(df_op, df_excecoes):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        # Aba 1: OP Consolidada Injeção
         if not df_op.empty:
             df_op.to_excel(writer, index=False, sheet_name="OP_Injecao_PU")
         else:
             pd.DataFrame({"Aviso": ["Nenhuma peça padrão identificada."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU")
 
-        # Aba 2: Especiais / Exceções para o Supervisor
         if not df_excecoes.empty:
             df_excecoes.to_excel(writer, index=False, sheet_name="Especiais_Supervisor")
         else:
             pd.DataFrame({"Status": ["Nenhum expositor especial/exceção nesta programação."]}).to_excel(writer, index=False, sheet_name="Especiais_Supervisor")
 
-        # Estilização profissional das abas
         wb = writer.book
         header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
         warn_fill = PatternFill(start_color="B45309", end_color="B45309", fill_type="solid")
@@ -211,7 +200,6 @@ if uploaded_file is not None:
         df_entrada = carregar_dados(uploaded_file)
         df_op, df_excecoes = processar_regras_injecao(df_entrada)
 
-        # KPIs Resumo da Programação
         k1, k2, k3 = st.columns(3)
         total_pecas = int(df_op["QTD_TOTAL"].sum()) if not df_op.empty else 0
         total_bojos = int(df_op[df_op["TIPO_PECA"].str.contains("BOJO")]["QTD_TOTAL"].sum()) if not df_op.empty else 0
@@ -223,7 +211,6 @@ if uploaded_file is not None:
 
         st.markdown("---")
 
-        # Abas de visualização na tela
         tab_op, tab_especiais, tab_bruto = st.tabs([
             "📋 OP de Injeção Consolidada",
             f"⚠️ Especiais / Supervisão ({total_especiais})",
@@ -246,7 +233,6 @@ if uploaded_file is not None:
         with tab_bruto:
             st.dataframe(df_entrada, use_container_width=True, hide_index=True)
 
-        # Botão de Download do Relatório Completo
         st.markdown("<br>", unsafe_allow_html=True)
         excel_bytes = gerar_excel_op(df_op, df_excecoes)
         st.download_button(
