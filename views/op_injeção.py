@@ -14,7 +14,7 @@ st.markdown(
             🧪 OP de Injeção de PU (Poliol + Iso)
         </h1>
         <p style="font-size: 14px; color: #94A3B8; margin: 0;">
-            Geração de Ordem de Produção unificada (Padrão Executivo), com normalização de acentos, filtro dinâmico de linhas e somatório por dimensões.
+            Geração de Ordem de Produção unificada (Padrão Executivo), com correção no somatório de expositores, formatação limpa para impressão e filtro dinâmico.
         </p>
     </div>
     """,
@@ -71,7 +71,6 @@ def carregar_dados(uploaded_file):
 def processar_regras_injecao(df_raw, linhas_selecionadas=None):
     df = df_raw.copy()
     
-    # Normaliza todas as colunas (remove acentos e converte para maiúsculas)
     novo_mapa_colunas = {}
     for c in df.columns:
         col_norm = normalizar_texto(str(c))
@@ -95,12 +94,13 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     pecas_padrao = []
     excecoes_supervisor = []
+    expositores_unicos = []
 
     termos_especiais = ["CANTO", "CT 180", "CT180", "CENTRAL", "PONTA", "90", "180"]
 
-    for _, row in df.iterrows():
+    for idx, row in df.iterrows():
         alinhamento = row["ALINHAMENTO_STR"]
-        dimensao = row["DIMENSAO"]
+        dimensao = row["DIMENSÃO" if "DIMENSÃO" in df.columns else "DIMENSAO"]
         mat_bojo = row["BOJO_MAT"]
         orfa = row["ORFA_STR"]
         linha_orig = row["LINHA_STR"]
@@ -111,6 +111,24 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
         modelo_limpo = re.sub(r"^\d+(\.\d+)?\s*", "", alinhamento).strip()
         is_especial = any(termo in modelo_limpo for termo in termos_especiais)
+
+        # Regista o expositor único para somatório de quantidade de expositores por dimensão
+        if not is_especial:
+            # Identifica a linha de produto padrão correspondente
+            if modelo_limpo.startswith("VRA"):
+                l_prod = "AÇOUGUE (VRA)"
+            elif modelo_limpo.startswith("VCA"):
+                l_prod = "AÇOUGUE (VCA)"
+            elif modelo_limpo.startswith("VA"):
+                l_prod = "VERTICAL ALTO (VA)"
+            elif modelo_limpo.startswith("VR"):
+                l_prod = "PADARIA (VR)"
+            elif modelo_limpo.startswith("VIL"):
+                l_prod = "LINHA VIL (LINEAR)"
+            else:
+                l_prod = linha_orig
+
+            expositores_unicos.append({"LINHA_PRODUTO": l_prod, "DIMENSAO": dimensao, "ID_EXPOSITOR": idx})
 
         # 1. REGRA VRA (Açougue) -> Bojo, Costas VRA, Tampos VRA
         if modelo_limpo.startswith("VRA") and not is_especial:
@@ -157,6 +175,7 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     df_pecas = pd.DataFrame(pecas_padrao)
     df_excecoes = pd.DataFrame(excecoes_supervisor)
+    df_exp = pd.DataFrame(expositores_unicos)
 
     if not df_pecas.empty:
         df_op_consolidada = df_pecas.groupby(
@@ -179,11 +198,15 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
                 
         df_resumo_linha["TOTAL_GERAL"] = df_resumo_linha[["1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS"]].sum(axis=1)
 
-        df_dimensoes_linha = df_pecas.groupby(
-            ["LINHA_PRODUTO", "DIMENSAO"], as_index=False
-        ).agg(
-            QTD_EXPOSITORES=("ORFA", "count")
-        ).sort_values(by=["LINHA_PRODUTO", "DIMENSAO"])
+        # Correção do somatório: conta exatamente o número de expositores únicos por dimensão e linha
+        if not df_exp.empty:
+            df_dimensoes_linha = df_exp.groupby(
+                ["LINHA_PRODUTO", "DIMENSAO"], as_index=False
+            ).agg(
+                QTD_EXPOSITORES=("ID_EXPOSITOR", "count")
+            ).sort_values(by=["LINHA_PRODUTO", "DIMENSAO"])
+        else:
+            df_dimensoes_linha = pd.DataFrame()
 
         df_rastreio = df_pecas[["ORFA", "CLIENTE", "LINHA_PRODUTO", "ALINHAMENTO", "DIMENSAO"]].drop_duplicates().sort_values(by=["ORFA", "LINHA_PRODUTO"])
     else:
@@ -194,7 +217,7 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     return df_op_consolidada, df_resumo_linha, df_dimensoes_linha, df_rastreio, df_excecoes
 
-# --- GERADOR DE EXCEL UNIFICADO (PADRÃO EXECUTIVO) ---
+# --- GERADOR DE EXCEL UNIFICADO (PADRÃO EXECUTIVO CORRIGIDO) ---
 def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, resp_pcp):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -271,12 +294,15 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         ws_op = wb["OP_Injecao_PU"]
         for row in ws_op.iter_rows(min_row=1, max_row=ws_op.max_row):
             for cell in row:
+                # Verifica se a célula é cabeçalho de tabela
                 if cell.value in ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO", "QTD_UNITARIA", "QTD_TOTAL", "ORFAS", "ORFA", "CLIENTE", "ALINHAMENTO", "BOJO_INDICADO", "MOTIVO_ATENCAO", "1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS", "TOTAL_GERAL", "QTD_EXPOSITORES"]:
                     cell.fill = header_fill
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal="center", vertical="center")
                 elif cell.row >= 7:
+                    # Aplica borda e fundo padrão branco para todas as células de dados (evitando fundo azul indesejado)
                     cell.border = thin_border
+                    cell.fill = PatternFill(fill_type=None)
                     cell.alignment = Alignment(horizontal="center", vertical="center")
 
         for col in ws_op.columns:
@@ -296,7 +322,6 @@ if uploaded_file is not None:
     try:
         df_entrada = carregar_dados(uploaded_file)
         
-        # Identifica as linhas disponíveis no arquivo
         df_temp = df_entrada.copy()
         for c in df_temp.columns:
             if "LINHA" in normalizar_texto(str(c)):
@@ -382,4 +407,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Erro ao processar o arquivo: {e}")
 else:
-    st.info("💡 Faça o upload da programação para gerar a OP executiva com filtro de linhas e somatório por dimensões.")
+    st.info("💡 Faça o upload da programação para gerar a OP executiva com filtro de linhas e somatório correto por dimensões.")
