@@ -14,7 +14,7 @@ st.markdown(
             🧪 OP de Injeção de PU (Poliol + Iso)
         </h1>
         <p style="font-size: 14px; color: #94A3B8; margin: 0;">
-            Geração de Ordem de Produção unificada (Padrão Executivo), com formatação limpa em fundo branco para impressão, data exata e filtro dinâmico de linhas.
+            Geração de Ordem de Produção unificada (Padrão Executivo), com correção definitiva de fundo branco para impressão e data exata.
         </p>
     </div>
     """,
@@ -214,7 +214,7 @@ def processar_regras_injecao(df_raw, linhas_selecionadas=None):
 
     return df_op_consolidada, df_resumo_linha, df_dimensoes_linha, df_rastreio, df_excecoes
 
-# --- GERADOR DE EXCEL UNIFICADO (FUNDO BRANCO LIMPO PARA DADOS) ---
+# --- GERADOR DE EXCEL UNIFICADO (COM CORREÇÃO DE FUNDO BRANCO PARA DADOS) ---
 def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, resp_pcp):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -240,44 +240,34 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
 
         current_row = 7
 
-        ws[f"A{current_row - 1}"] = "1. RELATÓRIO DETALHADO DE ORDENS DE PRODUÇÃO (BOJOS, COSTAS, TETOS-TAMPOS)"
-        ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-        if not df_op.empty:
-            df_op.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
-            current_row += len(df_op) + 3
-        else:
-            current_row += 3
+        # Armazenaremos os números de linha exatos onde estão os cabeçalhos das tabelas
+        linhas_cabecalho = set()
 
-        ws[f"A{current_row - 1}"] = "2. RESUMO CONSOLIDADO POR LINHA DE PRODUÇÃO"
-        ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-        if not df_resumo.empty:
-            df_resumo.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
-            current_row += len(df_resumo) + 3
-        else:
-            current_row += 3
+        def adicionar_tabela(df_tabela, titulo_secao):
+            nonlocal current_row
+            ws[f"A{current_row - 1}"] = titulo_secao
+            ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
+            if not df_tabela.empty:
+                df_tabela.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
+                linhas_cabecalho.add(current_row)
+                current_row += len(df_tabela) + 3
+            else:
+                current_row += 3
 
-        ws[f"A{current_row - 1}"] = "3. SOMATÓRIO DE EXPOSITORES PROGRAMADOS POR LINHA E DIMENSÃO"
-        ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-        if not df_dimensoes.empty:
-            df_dimensoes.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
-            current_row += len(df_dimensoes) + 3
-        else:
-            current_row += 3
-
-        ws[f"A{current_row - 1}"] = "4. RASTREABILIDADE: ORIGEM DOS EXPOSITORES"
-        ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
-        if not df_rastreio.empty:
-            df_rastreio.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
-            current_row += len(df_rastreio) + 3
-        else:
-            current_row += 3
-
+        adicionar_tabela(df_op, "1. RELATÓRIO DETALHADO DE ORDENS DE PRODUÇÃO (BOJOS, COSTAS, TETOS-TAMPOS)")
+        adicionar_tabela(df_resumo, "2. RESUMO CONSOLIDADO POR LINHA DE PRODUÇÃO")
+        adicionar_tabela(df_dimensoes, "3. SOMATÓRIO DE EXPOSITORES PROGRAMADOS POR LINHA E DIMENSÃO")
+        adicionar_tabela(df_rastreio, "4. RASTREABILIDADE: ORIGEM DOS EXPOSITORES")
+        
+        # Seção de Exceções
         ws[f"A{current_row - 1}"] = "5. ITENS ESPECIAIS / ATENÇÃO DO SUPERVISOR (CANTOS, CT 180, CENTRAIS)"
         ws[f"A{current_row - 1}"].font = Font(name="Calibri", size=12, bold=True, color="B45309")
         if not df_excecoes.empty:
             df_excecoes.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
+            linhas_cabecalho.add(current_row)
         else:
             pd.DataFrame({"Status": ["Nenhum expositor especial/exceção nesta programação."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=current_row - 1, startcol=0)
+            linhas_cabecalho.add(current_row)
 
         header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
         white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
@@ -293,12 +283,13 @@ def gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_exceco
         ws_op = wb["OP_Injecao_PU"]
         for row in ws_op.iter_rows(min_row=1, max_row=ws_op.max_row):
             for cell in row:
-                if cell.value in ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO", "QTD_UNITARIA", "QTD_TOTAL", "ORFAS", "ORFA", "CLIENTE", "ALINHAMENTO", "BOJO_INDICADO", "MOTIVO_ATENCAO", "1. BOJOS", "2. COSTAS", "3. TETOS - TAMPOS", "TOTAL_GERAL", "QTD_EXPOSITORES", "LINHA_PLANILHA"]:
+                if cell.row in linhas_cabecalho:
+                    # Linha exata de cabeçalho da tabela: Azul corporativo e letra branca
                     cell.fill = header_fill
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal="center", vertical="center")
-                elif cell.row >= 7 and cell.value is not None:
-                    # Aplica rigorosamente fundo branco em todas as células de dados para otimizar a impressão
+                elif cell.row >= 7 and cell.value is not None and not str(cell.value).startswith("1. ") and not str(cell.value).startswith("2. ") and not str(cell.value).startswith("3. ") and not str(cell.value).startswith("4. ") and not str(cell.value).startswith("5. "):
+                    # Linhas de dados: Fundo branco limpo, borda fina e fonte preta
                     cell.border = thin_border
                     cell.fill = white_fill
                     cell.font = data_font
@@ -396,7 +387,7 @@ if uploaded_file is not None:
         st.markdown("<br>", unsafe_allow_html=True)
         excel_bytes = gerar_excel_executivo(df_op, df_resumo, df_dimensoes, df_rastreio, df_excecoes, responsavel_pcp)
         st.download_button(
-            label="📥 Baixar OP de Injeção Executiva (Fundo Branco Limpo)",
+            label="📥 Baixar OP de Injeção Executiva (Corrigida)",
             data=excel_bytes,
             file_name="OP_Injecao_PU_Executiva.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -406,4 +397,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Erro ao processar o arquivo: {e}")
 else:
-    st.info("💡 Faça o upload da programação para gerar a OP executiva com fundo branco para impressão e data exata.")
+    st.info("💡 Faça o upload da programação para gerar a OP executiva perfeitamente formatada.")
