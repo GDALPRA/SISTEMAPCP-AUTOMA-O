@@ -50,7 +50,7 @@ def carregar_dados(uploaded_file):
             headers = [str(c).strip().upper() for c in linhas_extraidas[header_idx]]
             data = linhas_extraidas[header_idx + 1:]
             df_pdf = pd.DataFrame(data, columns=headers)
-            df_pdf = df_pdf[df_pdf[headers[0]].str.upper() != headers[0]]
+            df_pdf = df_pdf[df_pdf.iloc[:, 0].astype(str).str.upper() != headers[0]]
             return df_pdf
         except ImportError:
             st.error("A biblioteca `pdfplumber` não está instalada no ambiente. Adicione `pdfplumber` ao seu `requirements.txt` para leitura direta de PDFs.")
@@ -69,9 +69,9 @@ def processar_regras_injecao(df_raw):
     df = df.dropna(subset=["ALINHAMENTO"]).copy()
     df["DIMENSÃO"] = pd.to_numeric(df["DIMENSÃO"].astype(str).str.replace(",", "."), errors="coerce").fillna(0.0)
     df["BOJO_MAT"] = df["BOJO"].fillna("NÃO ESPECIFICADO").astype(str).str.strip().str.upper()
-    df["ALINHAMENTO_STR"] = df["ALINHAMENTO"].astype(str).str.strip().upper()
+    df["ALINHAMENTO_STR"] = df["ALINHAMENTO"].astype(str).str.strip().str.upper()
     df["ORFA_STR"] = df["ORFA"].astype(str).str.strip() if "ORFA" in df.columns else "-"
-    df["LINHA_STR"] = df["LINHA"].astype(str).str.strip().upper() if "LINHA" in df.columns else "-"
+    df["LINHA_STR"] = df["LINHA"].astype(str).str.strip().str.upper() if "LINHA" in df.columns else "-"
     df["CLIENTE_STR"] = df["NAME"].astype(str).str.strip() if "NAME" in df.columns else "-"
 
     pecas_padrao = []
@@ -137,7 +137,6 @@ def processar_regras_injecao(df_raw):
     df_excecoes = pd.DataFrame(excecoes_supervisor)
 
     if not df_pecas.empty:
-        # Tabela 1: Consolidado detalhado por Grupo, Linha, Peça, Material e Dimensão
         df_op_consolidada = df_pecas.groupby(
             ["LINHA_PRODUTO", "GRUPO_PECA", "TIPO_PECA", "MODELO_PECA", "MATERIAL", "DIMENSAO"], as_index=False
         ).agg(
@@ -146,14 +145,12 @@ def processar_regras_injecao(df_raw):
             ORFAS=("ORFA", lambda x: ", ".join(sorted(set(x))))
         ).sort_values(by=["LINHA_PRODUTO", "GRUPO_PECA", "MATERIAL", "DIMENSAO"])
 
-        # Tabela 2: Resumo por Linha de Produção
         df_resumo_linha = df_pecas.groupby(
             ["LINHA_PRODUTO", "GRUPO_PECA"], as_index=False
         ).agg(
             TOTAL_PECAS=("QTD_UNITARIA", "sum")
         ).pivot(index="LINHA_PRODUTO", columns="GRUPO_PECA", values="TOTAL_PECAS").fillna(0).reset_index()
         
-        # Garante que as colunas principais existam no resumo
         for col in ["BOJOS", "COSTAS", "TETOS - TAMPOS"]:
             if col not in df_resumo_linha.columns:
                 df_resumo_linha[col] = 0
@@ -174,7 +171,6 @@ def gerar_excel_op(df_op, df_resumo, df_excecoes):
         if "Sheet" in wb.sheetnames:
             wb.remove(wb["Sheet"])
 
-        # 1. Cabeçalho Corporativo da OP
         ws["A1"] = "EMPRESA:"
         ws["B1"] = "NSF TECNOLOGIA EM INSTALAÇÕES COMERCIAIS"
         ws["A2"] = "SETOR DE DESTINO:"
@@ -184,14 +180,12 @@ def gerar_excel_op(df_op, df_resumo, df_excecoes):
         ws["A4"] = "DATA / HORA:"
         ws["B4"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        # Estilo do Cabeçalho
         title_font = Font(name="Calibri", size=11, bold=True, color="1E3A8A")
         val_font = Font(name="Calibri", size=11, color="000000")
         for r in range(1, 5):
             ws[f"A{r}"].font = title_font
             ws[f"B{r}"].font = val_font
 
-        # 2. Seção 1: Relatório Detalhado de Peças
         start_row_det = 7
         ws[f"A{start_row_det - 1}"] = "1. RELATÓRIO DETALHADO DE ORDENS DE PRODUÇÃO (BOJOS, COSTAS, TETOS-TAMPOS)"
         ws[f"A{start_row_det - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
@@ -201,7 +195,6 @@ def gerar_excel_op(df_op, df_resumo, df_excecoes):
         else:
             pd.DataFrame({"Aviso": ["Nenhuma peça padrão identificada."]}).to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=start_row_det - 1, startcol=0)
 
-        # 3. Seção 2: Resumo por Linha de Produção
         row_after_det = start_row_det + len(df_op) + 3 if not df_op.empty else start_row_det + 3
         ws[f"A{row_after_det - 1}"] = "2. RESUMO CONSOLIDADO DE PEÇAS POR LINHA DE PRODUÇÃO"
         ws[f"A{row_after_det - 1}"].font = Font(name="Calibri", size=12, bold=True, color="1E3A8A")
@@ -209,13 +202,11 @@ def gerar_excel_op(df_op, df_resumo, df_excecoes):
         if not df_resumo.empty:
             df_resumo.to_excel(writer, index=False, sheet_name="OP_Injecao_PU", startrow=row_after_det - 1, startcol=0)
 
-        # Aba 2: Especiais / Exceções para o Supervisor
         if not df_excecoes.empty:
             df_excecoes.to_excel(writer, index=False, sheet_name="Especiais_Supervisor")
         else:
             pd.DataFrame({"Status": ["Nenhum expositor especial/exceção nesta programação."]}).to_excel(writer, index=False, sheet_name="Especiais_Supervisor")
 
-        # Estilização Geral do Excel (Bordas, Cores e Alinhamento)
         header_fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
         warn_fill = PatternFill(start_color="B45309", end_color="B45309", fill_type="solid")
         header_font = Font(name="Calibri", size=11, color="FFFFFF", bold=True)
@@ -227,7 +218,6 @@ def gerar_excel_op(df_op, df_resumo, df_excecoes):
         )
 
         ws_op = wb["OP_Injecao_PU"]
-        # Formata cabeçalhos das tabelas na aba OP
         for r_idx in [start_row_det, row_after_det]:
             for col_idx in range(1, 20):
                 cell = ws_op.cell(row=r_idx, column=col_idx)
@@ -236,97 +226,12 @@ def gerar_excel_op(df_op, df_resumo, df_excecoes):
                     cell.font = header_font
                     cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # Formata dados das tabelas da OP
         for row in ws_op.iter_rows(min_row=start_row_det + 1, max_row=ws_op.max_row):
             for cell in row:
                 if cell.value is not None:
                     cell.border = thin_border
                     cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # Formata aba de Supervisão
         if "Especiais_Supervisor" in wb.sheetnames:
             ws_sup = wb["Especiais_Supervisor"]
-            for cell in ws_sup[1]:
-                cell.fill = warn_fill
-                cell.font = header_font
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-            for row in ws_sup.iter_rows(min_row=2):
-                for cell in row:
-                    cell.border = thin_border
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-
-        # Ajuste de largura das colunas
-        for sheet_name in wb.sheetnames:
-            ws_sheet = wb[sheet_name]
-            for col in ws_sheet.columns:
-                max_len = max(len(str(cell.value or "")) for cell in col)
-                col_letter = col[0].column_letter
-                ws_sheet.column_dimensions[col_letter].width = max(max_len + 4, 15)
-
-    return output.getvalue()
-
-# --- INTERFACE DE USUÁRIO ---
-uploaded_file = st.file_uploader(
-    "📂 Importar Programação de Montagem (PDF ou Excel)",
-    type=["pdf", "xlsx", "xls"],
-)
-
-if uploaded_file is not None:
-    try:
-        df_entrada = carregar_dados(uploaded_file)
-        df_op, df_resumo, df_excecoes = processar_regras_injecao(df_entrada)
-
-        k1, k2, k3 = st.columns(3)
-        total_pecas = int(df_op["QTD_TOTAL"].sum()) if not df_op.empty else 0
-        total_bojos = int(df_op[df_op["GRUPO_PECA"] == "BOJOS"]["QTD_TOTAL"].sum()) if not df_op.empty else 0
-        total_especiais = len(df_excecoes)
-
-        k1.metric("Total de Peças para Injeção", f"{total_pecas} un.")
-        k2.metric("Total de Bojos (Inox / PP)", f"{total_bojos} un.")
-        k3.metric("Expositores Especiais / Atenção", f"{total_especiais} itens")
-
-        st.markdown("---")
-
-        tab_op, tab_resumo, tab_especiais, tab_bruto = st.tabs([
-            "📋 OP Consolidada Detalhada",
-            "📊 Resumo por Linha",
-            f"⚠️ Especiais / Supervisão ({total_especiais})",
-            "📄 Programação Original"
-        ])
-
-        with tab_op:
-            if not df_op.empty:
-                st.dataframe(df_op, use_container_width=True, hide_index=True)
-            else:
-                st.warning("Nenhuma peça das linhas padrão foi encontrada.")
-
-        with tab_resumo:
-            if not df_resumo.empty:
-                st.dataframe(df_resumo, use_container_width=True, hide_index=True)
-            else:
-                st.warning("Sem dados para o resumo.")
-
-        with tab_especiais:
-            if not df_excecoes.empty:
-                st.warning("Os itens abaixo são modelos especiais (Cantos, CT 180, Centrais) e requerem análise do supervisor:")
-                st.dataframe(df_excecoes, use_container_width=True, hide_index=True)
-            else:
-                st.success("✅ Nenhum item especial encontrado nesta programação.")
-
-        with tab_bruto:
-            st.dataframe(df_entrada, use_container_width=True, hide_index=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        excel_bytes = gerar_excel_op(df_op, df_resumo, df_excecoes)
-        st.download_button(
-            label="📥 Baixar OP de Injeção Profissional (Excel Estruturado)",
-            data=excel_bytes,
-            file_name="OP_Injecao_PU_Estruturada.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type="primary",
-        )
-
-    except Exception as e:
-        st.error(f"Erro ao processar o arquivo: {e}")
-else:
-    st.info("💡 Faça o upload da planilha ou PDF de programação para gerar automaticamente a OP estruturada com cabeçalho corporativo, separação por grupos e sumários.")
+            for cell in ws_sup[1
