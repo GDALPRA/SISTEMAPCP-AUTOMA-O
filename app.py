@@ -232,6 +232,12 @@ materiais_page = st.Page(
     icon=":material/inventory_2:",
 )
 
+injecao_page = st.Page(
+    "views/op_injeção.py",
+    title="OP de Injeção de PU",
+    icon=":material/science:",
+)
+
 # --- TELA INICIAL (DASHBOARD ERP PROFISSIONAL) ---
 def render_home():
     st.markdown(
@@ -255,7 +261,7 @@ def render_home():
             f"""
             <div class="erp-kpi-card">
                 <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Módulos Ativos</span>
-                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">7 Subsistemas</h3>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">8 Subsistemas</h3>
                 <span style="font-size: 11px; color: #22C55E; font-weight: 600;">● Operacional & Estável</span>
             </div>
             """,
@@ -266,7 +272,7 @@ def render_home():
             f"""
             <div class="erp-kpi-card">
                 <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Linhas de Fábrica</span>
-                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">VA, VCA & VRA</h3>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">VA, VCA, VRA & VIL</h3>
                 <span style="font-size: 11px; color: #3B82F6; font-weight: 600;">◆ Integrado ao PCP</span>
             </div>
             """,
@@ -277,7 +283,7 @@ def render_home():
             f"""
             <div class="erp-kpi-card">
                 <span style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.8px;">Insumos Gerenciados</span>
-                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">Aço, PEAD & ABS</h3>
+                <h3 style="margin: 5px 0 0 0; font-size: 22px; font-weight: 700; color: {TEXT_MAIN};">Aço, PU, PEAD & ABS</h3>
                 <span style="font-size: 11px; color: #22C55E; font-weight: 600;">⚡ Cálculo Dinâmico</span>
             </div>
             """,
@@ -305,7 +311,7 @@ def render_home():
         unsafe_allow_html=True,
     )
 
-    # Grid de Acesso Rápido com 3 Colunas perfeitamente equilibradas (3 botões em cada uma das duas primeiras colunas e 1 na terceira)
+    # Grid de Acesso Rápido com 3 Colunas perfeitamente equilibradas (3 na col1, 3 na col2, 2 na col3)
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -329,6 +335,9 @@ def render_home():
             st.switch_page(materiais_page)
 
     with col3:
+        if st.button("🧪 OP de Injeção de PU", key="btn_injecao"):
+            st.switch_page(injecao_page)
+        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
         if st.button("📊 Relatórios Gerenciais (ORFAs)", key="btn_gerencial"):
             st.switch_page(gerencial_page)
 
@@ -351,6 +360,7 @@ pg = st.navigation(
             portas_page,
             chapas_page,
             inox_page,
+            injecao_page,
             gerencial_page,
             materiais_page,
         ]
