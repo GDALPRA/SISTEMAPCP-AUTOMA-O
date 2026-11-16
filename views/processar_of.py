@@ -29,7 +29,7 @@ st.markdown(
             🚪 RELATORIO GERENCIAL OFs PLANEJADAS
         </h2>
         <p style="margin: 6px 0 0 0; color: #94A3B8; font-size: 14px;">
-            Painel de Engenharia & PCP — Relatório Gerencial Executivo
+            Painel de Engenharia & PCP — Relatório Gerencial Executivo com Dashboard de Consumo
         </p>
     </div>
     """,
@@ -42,11 +42,9 @@ st.write("")
 def extrair_familia_e_dimensao(modelo: str):
     m = modelo.strip().upper()
     
-    # Extrai números do modelo para identificar a dimensão/comprimento (ex: 2500, 3000, 1875)
     nums = re.findall(r"\d{3,5}", m)
     dimensao = nums[0] if nums else "GERAL"
 
-    # Isolando VAP (Congelados) de VA (Vertical Alto) e demais linhas
     if m.startswith("VAP"):
         familia = "VAP (CONGELADOS)"
     elif m.startswith("VRA"):
@@ -91,7 +89,6 @@ if uploaded_files:
                         texto_completo = "\n".join(paginas_texto)
                         linhas_todas = [l.strip() for p in paginas_texto for l in p.split("\n") if l.strip()]
 
-                    # --- VARIÁVEIS EXCLUSIVAS DESTE PDF ---
                     num_orfa = ""
                     entrega = ""
                     pedido = ""
@@ -150,7 +147,6 @@ if uploaded_files:
                         pedido = ped_fb.group(1).strip() if ped_fb else "N/A"
 
                     itens_orfa = []
-                    
                     todas_iluminacoes = re.findall(r"(3000K|4000K)", texto_completo, re.IGNORECASE)
                     ilum_idx = 0
 
@@ -170,7 +166,6 @@ if uploaded_files:
                             
                             if m_item:
                                 q_str, modelo_raw, end_opt = m_item.groups()
-                                
                                 modelo_limpo = re.sub(r"\s*\([\d\.\-\s]+\)", "", modelo_raw).strip()
                                 modelo_upper = modelo_limpo.upper()
                                 
@@ -186,7 +181,6 @@ if uploaded_files:
                                         endereco = end_match.group(1).strip()
 
                                 bloco = "\n".join(linhas[max(0, i-6):min(len(linhas), i+12)])
-                                
                                 acb_tt = re.search(r"Acb\.\s*TT/PNL:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 caren = re.search(r"Caren\.\s*Frontal:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 acol_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
@@ -231,7 +225,7 @@ if uploaded_files:
             if lotes_orfas:
                 st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
-                # --- CÁLCULO DO RESUMO DETALHADO POR FAMÍLIA, DIMENSÃO E ACABAMENTOS ---
+                # --- PROCESSAMENTO DOS DADOS PARA O RESUMO E DASHBOARD DE CONSUMO ---
                 registros_cores = []
                 for lote in lotes_orfas:
                     for item in lote['itens']:
@@ -265,6 +259,25 @@ if uploaded_files:
                 else:
                     df_resumo_cores = pd.DataFrame(columns=["Família", "Dimensão", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "Quantidade"])
 
+                # --- CÁLCULO DO DASHBOARD DE CONSUMO DE MATERIAIS ---
+                total_geral_expositores = df_resumo_cores["Quantidade"].sum() if not df_resumo_cores.empty else 1
+
+                def calcular_dashboard_material(coluna_material):
+                    if df_resumo_cores.empty:
+                        return pd.DataFrame(columns=["Material / Acabamento", "Qtd Expositores", "Porcentagem (%)"])
+                    
+                    df_dash = (
+                        df_resumo_cores.groupby(coluna_material, as_index=False)["Quantidade"]
+                        .sum()
+                        .rename(columns={coluna_material: "Material / Acabamento", "Quantidade": "Qtd Expositores"})
+                    )
+                    df_dash["Porcentagem (%)"] = (df_dash["Qtd Expositores"] / total_geral_expositores * 100).round(2)
+                    return df_dash.sort_values(by="Qtd Expositores", ascending=False)
+
+                df_dash_tt = calcular_dashboard_material("ACB. TT/PNL")
+                df_dash_caren = calcular_dashboard_material("CAREN. FRONTAL")
+                df_dash_ext = calcular_dashboard_material("ACB. EXTERNO")
+
                 st.markdown("---")
                 for lote in lotes_orfas:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
@@ -278,16 +291,28 @@ if uploaded_files:
                     st.dataframe(df_exib, use_container_width=True, hide_index=True)
                     st.markdown("---")
 
-                # --- EXIBIÇÃO DO RESUMO DETALHADO NA TELA ---
+                # --- EXIBIÇÃO DO RESUMO E DASHBOARD NA TELA ---
                 st.markdown("### 🎨 Resumo Geral Detalhado por Família, Dimensão e Acabamentos")
                 if not df_resumo_cores.empty:
                     st.dataframe(df_resumo_cores, use_container_width=True, hide_index=True)
-                else:
-                    st.info("Nenhum dado encontrado para o resumo.")
+                
+                st.markdown("---")
+                st.markdown("### 📊 Dashboard de Consumo de Materiais e Acabamentos")
+                
+                col_b1, col_b2, col_b3 = st.columns(3)
+                with col_b1:
+                    st.markdown("##### 🔷 ACB. TT/PNL")
+                    st.dataframe(df_dash_tt, use_container_width=True, hide_index=True)
+                with col_b2:
+                    st.markdown("##### 🔷 CAREN. FRONTAL")
+                    st.dataframe(df_dash_caren, use_container_width=True, hide_index=True)
+                with col_b3:
+                    st.markdown("##### 🔷 ACB. EXTERNO")
+                    st.dataframe(df_dash_ext, use_container_width=True, hide_index=True)
                 st.markdown("---")
 
                 # --- GERAÇÃO DO EXCEL ---
-                def gerar_excel(lotes, df_cores):
+                def gerar_excel(lotes, df_cores, df_d_tt, df_d_caren, df_d_ext):
                     out = io.BytesIO()
                     wb = openpyxl.Workbook()
                     ws = wb.active
@@ -345,7 +370,7 @@ if uploaded_files:
                             curr_row += 1
                         curr_row += 1
 
-                    # --- BLOCO FINAL NO EXCEL: RESUMO DETALHADO POR COLUNAS ---
+                    # --- RESUMO DETALHADO ---
                     if not df_cores.empty:
                         curr_row += 1
                         ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=6)
@@ -371,8 +396,44 @@ if uploaded_files:
                                 if idx_c % 2 == 1:
                                     c.fill = fill_zebra
                             curr_row += 1
+                        curr_row += 2
 
-                    for col_letter, width in {'A': 18, 'B': 14, 'C': 22, 'D': 22, 'E': 22, 'F': 15}.items():
+                    # --- DASHBOARD DE CONSUMO NO EXCEL ---
+                    def escrever_tabela_dashboard(df_d, nome_tabela):
+                        nonlocal curr_row
+                        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=3)
+                        c_dt = ws.cell(row=curr_row, column=1, value=f"DASHBOARD DE CONSUMO — {nome_tabela}")
+                        c_dt.font = f_title; c_dt.fill = fill_title; c_dt.alignment = Alignment(horizontal="center", vertical="center")
+                        ws.row_dimensions[curr_row].height = 20
+                        curr_row += 1
+
+                        d_headers = ["Material / Acabamento", "Qtd Expositores", "Porcentagem (%)"]
+                        for c_idx, h in enumerate(d_headers, 1):
+                            c = ws.cell(row=curr_row, column=c_idx, value=h)
+                            c.font = f_head; c.fill = fill_head; c.alignment = Alignment(horizontal="center", vertical="center"); c.border = border
+                        ws.row_dimensions[curr_row].height = 18
+                        curr_row += 1
+
+                        for idx_d, row_d in df_d.iterrows():
+                            c1 = ws.cell(row=curr_row, column=1, value=row_d["Material / Acabamento"])
+                            c1.font = f_body; c1.alignment = Alignment(horizontal="left", vertical="center"); c1.border = border
+
+                            c2 = ws.cell(row=curr_row, column=2, value=int(row_d["Qtd Expositores"]))
+                            c2.font = f_bold_body; c2.alignment = Alignment(horizontal="center", vertical="center"); c2.border = border
+
+                            c3 = ws.cell(row=curr_row, column=3, value=f"{row_d['Porcentagem (%)']:.2f}%")
+                            c3.font = f_bold_body; c3.alignment = Alignment(horizontal="center", vertical="center"); c3.border = border
+
+                            if idx_d % 2 == 1:
+                                c1.fill = fill_zebra; c2.fill = fill_zebra; c3.fill = fill_zebra
+                            curr_row += 1
+                        curr_row += 2
+
+                    escrever_tabela_dashboard(df_d_tt, "ACB. TT/PNL")
+                    escrever_tabela_dashboard(df_d_caren, "CARENAGEM FRONTAL")
+                    escrever_tabela_dashboard(df_d_ext, "ACB. EXTERNO")
+
+                    for col_letter, width in {'A': 25, 'B': 18, 'C': 18, 'D': 22, 'E': 22, 'F': 15}.items():
                         ws.column_dimensions[col_letter].width = width
 
                     wb.save(out)
@@ -380,7 +441,7 @@ if uploaded_files:
                     return out.getvalue()
 
                 # --- GERAÇÃO DO PDF CONSOLIDADO ---
-                def gerar_pdf(lotes, df_cores):
+                def gerar_pdf(lotes, df_cores, df_d_tt, df_d_caren, df_d_ext):
                     pdf_out = io.BytesIO()
                     doc = SimpleDocTemplate(pdf_out, pagesize=landscape(A4), leftMargin=1*cm, rightMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
                     styles = getSampleStyleSheet()
@@ -406,7 +467,6 @@ if uploaded_files:
 
                     for lote in lotes:
                         bloqueio = []
-                        
                         txt_lote = f"■ ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']} | Cliente: {lote['cliente']}"
                         t_lote = Table([[Paragraph(txt_lote, style_sub)]], colWidths=[27.7*cm])
                         t_lote.setStyle(TableStyle([
@@ -444,10 +504,9 @@ if uploaded_files:
                         ]))
                         bloqueio.append(t_table)
                         bloqueio.append(Spacer(1, 10))
-
                         story.append(KeepTogether(bloqueio))
 
-                    # --- BLOCO FINAL NO PDF: RESUMO DETALHADO POR COLUNAS ---
+                    # --- RESUMO DETALHADO NO PDF ---
                     if not df_cores.empty:
                         story.append(Spacer(1, 8))
                         bloco_resumo = []
@@ -460,12 +519,8 @@ if uploaded_files:
                         bloco_resumo.append(t_res_banner)
 
                         rows_cores = [[
-                            Paragraph("Família", style_h),
-                            Paragraph("Dimensão", style_h),
-                            Paragraph("ACB. TT/PNL", style_h),
-                            Paragraph("CAREN. FRONTAL", style_h),
-                            Paragraph("ACB. EXTERNO", style_h),
-                            Paragraph("Qtd Expositores", style_h)
+                            Paragraph("Família", style_h), Paragraph("Dimensão", style_h), Paragraph("ACB. TT/PNL", style_h),
+                            Paragraph("CAREN. FRONTAL", style_h), Paragraph("ACB. EXTERNO", style_h), Paragraph("Qtd Expositores", style_h)
                         ]]
 
                         for _, r_cor in df_cores.iterrows():
@@ -489,6 +544,44 @@ if uploaded_files:
                         bloco_resumo.append(t_cores)
                         story.append(KeepTogether(bloco_resumo))
 
+                    # --- DASHBOARD DE CONSUMO NO PDF ---
+                    def criar_tabela_pdf_dashboard(df_d, titulo_dash):
+                        bloco_d = []
+                        bloco_d.append(Spacer(1, 10))
+                        t_b = Table([[Paragraph(f"DASHBOARD DE CONSUMO — {titulo_dash}", style_sub)]], colWidths=[27.7*cm])
+                        t_b.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#E2E8F0")),
+                            ('TOPPADDING', (0,0), (-1,-1), 4),
+                            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                        ]))
+                        bloco_d.append(t_b)
+
+                        r_d = [[Paragraph("Material / Acabamento", style_h), Paragraph("Qtd Expositores", style_h), Paragraph("Porcentagem (%)", style_h)]]
+                        for _, row_d in df_d.iterrows():
+                            r_d.append([
+                                Paragraph(str(row_d["Material / Acabamento"]), style_c),
+                                Paragraph(str(int(row_d["Qtd Expositores"])), style_ccb),
+                                Paragraph(f"{row_d['Porcentagem (%)']:.2f}%", style_ccb),
+                            ])
+
+                        t_dt = Table(r_d, colWidths=[17.7*cm, 5.0*cm, 5.0*cm])
+                        t_dt.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2C5282")),
+                            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
+                            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
+                            ('TOPPADDING', (0,0), (-1,-1), 3),
+                            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+                        ]))
+                        bloco_d.append(t_dt)
+                        return KeepTogether(bloco_d)
+
+                    if not df_d_tt.empty:
+                        story.append(criar_tabela_pdf_dashboard(df_d_tt, "ACB. TT/PNL"))
+                    if not df_d_caren.empty:
+                        story.append(criar_tabela_pdf_dashboard(df_d_caren, "CARENAGEM FRONTAL"))
+                    if not df_d_ext.empty:
+                        story.append(criar_tabela_pdf_dashboard(df_d_ext, "ACB. EXTERNO"))
+
                     doc.build(story)
                     pdf_out.seek(0)
                     return pdf_out.getvalue()
@@ -497,7 +590,7 @@ if uploaded_files:
                 with col_d1:
                     st.download_button(
                         label="📥 Baixar Relatório Consolidado em Excel (.xlsx)",
-                        data=gerar_excel(lotes_orfas, df_resumo_cores),
+                        data=gerar_excel(lotes_orfas, df_resumo_cores, df_dash_tt, df_dash_caren, df_dash_ext),
                         file_name="Relatorio_Consolidado_ORFAS.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
@@ -505,7 +598,7 @@ if uploaded_files:
                 with col_d2:
                     st.download_button(
                         label="📥 Baixar Relatório Consolidado em PDF (.pdf)",
-                        data=gerar_pdf(lotes_orfas, df_resumo_cores),
+                        data=gerar_pdf(lotes_orfas, df_resumo_cores, df_dash_tt, df_dash_caren, df_dash_ext),
                         file_name="Relatorio_Consolidado_ORFAS.pdf",
                         mime="application/pdf",
                         use_container_width=True,
