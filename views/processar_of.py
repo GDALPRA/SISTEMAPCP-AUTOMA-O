@@ -38,6 +38,26 @@ st.markdown(
 
 st.write("")
 
+# --- FUNÇÃO AUXILIAR PARA IDENTIFICAR FAMÍLIA DO EXPOSITOR ---
+def identificar_familia(modelo: str) -> str:
+    m = modelo.strip().upper()
+    # Ordenado dos prefixos mais específicos para os mais genéricos
+    if m.startswith("VRA"):
+        return "VRA"
+    elif m.startswith("VCA"):
+        return "VCA"
+    elif m.startswith("VIL"):
+        return "VIL"
+    elif m.startswith("VA"):
+        return "VA"
+    elif m.startswith("VR"):
+        return "VR"
+    elif m.startswith("IR"):
+        return "IR"
+    else:
+        match = re.match(r"^([A-Z]+)", m)
+        return match.group(1) if match else "OUTROS"
+
 # --- ÁREA DE UPLOAD ---
 uploaded_files = st.file_uploader(
     "Arraste ou selecione os arquivos PDF das ORFAs de origem (.pdf)",
@@ -204,6 +224,37 @@ if uploaded_files:
             if lotes_orfas:
                 st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
+                # --- CÁLCULO DO RESUMO GERAL DE CORES POR FAMÍLIA ---
+                registros_cores = []
+                for lote in lotes_orfas:
+                    for item in lote['itens']:
+                        try:
+                            qtd_num = int(item["qtd"])
+                        except ValueError:
+                            qtd_num = 1
+                        
+                        familia = identificar_familia(item["modelo"])
+                        # Prioriza ACB. EXTERNO; caso esteja vazio ("-"), usa CAREN. FRONTAL
+                        cor = item["acb_ext"].strip().upper()
+                        if not cor or cor == "-":
+                            cor = item["carenagem"].strip().upper() if item["carenagem"].strip() != "-" else "NÃO INFORMADA"
+
+                        registros_cores.append({
+                            "Família": familia,
+                            "Cor / Acabamento": cor,
+                            "Quantidade": qtd_num
+                        })
+
+                if registros_cores:
+                    df_resumo_cores = (
+                        pd.DataFrame(registros_cores)
+                        .groupby(["Família", "Cor / Acabamento"], as_index=False)["Quantidade"]
+                        .sum()
+                        .sort_values(by=["Família", "Quantidade"], ascending=[True, False])
+                    )
+                else:
+                    df_resumo_cores = pd.DataFrame(columns=["Família", "Cor / Acabamento", "Quantidade"])
+
                 st.markdown("---")
                 for lote in lotes_orfas:
                     st.markdown(f"#### 📄 ORFA: {lote['orfa']} | Pedido: {lote['pedido']} | Entrega: {lote['entrega']}")
@@ -217,8 +268,16 @@ if uploaded_files:
                     st.dataframe(df_exib, use_container_width=True, hide_index=True)
                     st.markdown("---")
 
+                # --- EXIBIÇÃO DO RESUMO GERAL DE CORES NA TELA ---
+                st.markdown("### 🎨 Resumo Geral de Cores por Família")
+                if not df_resumo_cores.empty:
+                    st.dataframe(df_resumo_cores, use_container_width=True, hide_index=True)
+                else:
+                    st.info("Nenhum dado de cor encontrado para resumir.")
+                st.markdown("---")
+
                 # --- GERAÇÃO DO EXCEL ---
-                def gerar_excel(lotes):
+                def gerar_excel(lotes, df_cores):
                     out = io.BytesIO()
                     wb = openpyxl.Workbook()
                     ws = wb.active
@@ -235,6 +294,7 @@ if uploaded_files:
                     f_sub = Font(name="Calibri", size=10, bold=True, color=NAVY)
                     f_head = Font(name="Calibri", size=9, bold=True, color="FFFFFF")
                     f_body = Font(name="Calibri", size=9)
+                    f_bold_body = Font(name="Calibri", size=9, bold=True)
 
                     fill_title = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
                     fill_head = PatternFill(start_color=HEADER_BG, end_color=HEADER_BG, fill_type="solid")
@@ -275,7 +335,51 @@ if uploaded_files:
                             curr_row += 1
                         curr_row += 1
 
-                    for col_letter, width in {'A': 6, 'B': 25, 'C': 15, 'D': 20, 'E': 20, 'F': 20, 'G': 12, 'H': 10}.items():
+                    # --- BLOCO FINAL NO EXCEL: RESUMO GERAL DE CORES POR FAMÍLIA ---
+                    if not df_cores.empty:
+                        curr_row += 1
+                        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=4)
+                        c_res_title = ws.cell(row=curr_row, column=1, value="RESUMO GERAL DE CORES POR FAMÍLIA DE EXPOSITORES")
+                        c_res_title.font = f_title; c_res_title.fill = fill_title; c_res_title.alignment = Alignment(horizontal="center", vertical="center")
+                        ws.row_dimensions[curr_row].height = 22
+                        curr_row += 1
+
+                        ws.cell(row=curr_row, column=1, value="Família").font = f_head
+                        ws.cell(row=curr_row, column=1).fill = fill_head
+                        ws.cell(row=curr_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=curr_row, column=1).border = border
+
+                        ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=3)
+                        for col_i in [2, 3]:
+                            cell_h = ws.cell(row=curr_row, column=col_i)
+                            if col_i == 2:
+                                cell_h.value = "Cor / Acabamento"
+                            cell_h.font = f_head; cell_h.fill = fill_head; cell_h.alignment = Alignment(horizontal="center", vertical="center"); cell_h.border = border
+
+                        ws.cell(row=curr_row, column=4, value="Qtd Expositores").font = f_head
+                        ws.cell(row=curr_row, column=4).fill = fill_head
+                        ws.cell(row=curr_row, column=4).alignment = Alignment(horizontal="center", vertical="center")
+                        ws.cell(row=curr_row, column=4).border = border
+                        ws.row_dimensions[curr_row].height = 18
+                        curr_row += 1
+
+                        for idx_c, row_c in df_cores.iterrows():
+                            c1 = ws.cell(row=curr_row, column=1, value=row_c["Família"])
+                            c1.font = f_bold_body; c1.alignment = Alignment(horizontal="center", vertical="center"); c1.border = border
+
+                            ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=3)
+                            c2 = ws.cell(row=curr_row, column=2, value=row_c["Cor / Acabamento"])
+                            c2.font = f_body; c2.alignment = Alignment(horizontal="left", vertical="center"); c2.border = border
+                            ws.cell(row=curr_row, column=3).border = border
+
+                            c4 = ws.cell(row=curr_row, column=4, value=int(row_c["Quantidade"]))
+                            c4.font = f_bold_body; c4.alignment = Alignment(horizontal="center", vertical="center"); c4.border = border
+
+                            if idx_c % 2 == 1:
+                                c1.fill = fill_zebra; c2.fill = fill_zebra; ws.cell(row=curr_row, column=3).fill = fill_zebra; c4.fill = fill_zebra
+                            curr_row += 1
+
+                    for col_letter, width in {'A': 12, 'B': 25, 'C': 15, 'D': 20, 'E': 20, 'F': 20, 'G': 12, 'H': 10}.items():
                         ws.column_dimensions[col_letter].width = width
 
                     wb.save(out)
@@ -283,7 +387,7 @@ if uploaded_files:
                     return out.getvalue()
 
                 # --- GERAÇÃO DO PDF CONSOLIDADO ---
-                def gerar_pdf(lotes):
+                def gerar_pdf(lotes, df_cores):
                     pdf_out = io.BytesIO()
                     doc = SimpleDocTemplate(pdf_out, pagesize=landscape(A4), leftMargin=1*cm, rightMargin=1*cm, topMargin=1*cm, bottomMargin=1*cm)
                     styles = getSampleStyleSheet()
@@ -293,6 +397,7 @@ if uploaded_files:
                     style_h = ParagraphStyle('H', fontName='Helvetica-Bold', fontSize=8, textColor=colors.white, alignment=1)
                     style_c = ParagraphStyle('C', fontName='Helvetica', fontSize=7, leading=9)
                     style_cc = ParagraphStyle('CC', fontName='Helvetica', fontSize=7, leading=9, alignment=1)
+                    style_ccb = ParagraphStyle('CCB', fontName='Helvetica-Bold', fontSize=7.5, leading=9, alignment=1)
 
                     story = []
                     
@@ -349,6 +454,42 @@ if uploaded_files:
 
                         story.append(KeepTogether(bloqueio))
 
+                    # --- BLOCO FINAL NO PDF: RESUMO GERAL DE CORES POR FAMÍLIA ---
+                    if not df_cores.empty:
+                        story.append(Spacer(1, 8))
+                        bloco_resumo = []
+                        t_res_banner = Table([[Paragraph("RESUMO GERAL DE CORES POR FAMÍLIA DE EXPOSITORES", style_sub)]], colWidths=[15.0*cm])
+                        t_res_banner.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#E2E8F0")),
+                            ('TOPPADDING', (0,0), (-1,-1), 5),
+                            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+                        ]))
+                        bloco_resumo.append(t_res_banner)
+
+                        rows_cores = [[
+                            Paragraph("Família", style_h),
+                            Paragraph("Cor / Acabamento", style_h),
+                            Paragraph("Qtd Expositores", style_h)
+                        ]]
+
+                        for _, r_cor in df_cores.iterrows():
+                            rows_cores.append([
+                                Paragraph(str(r_cor["Família"]), style_ccb),
+                                Paragraph(str(r_cor["Cor / Acabamento"]), style_c),
+                                Paragraph(str(int(r_cor["Quantidade"])), style_ccb),
+                            ])
+
+                        t_cores = Table(rows_cores, colWidths=[3.5*cm, 8.0*cm, 3.5*cm])
+                        t_cores.setStyle(TableStyle([
+                            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2C5282")),
+                            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
+                            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor("#F7FAFC")]),
+                            ('TOPPADDING', (0,0), (-1,-1), 4),
+                            ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                        ]))
+                        bloco_resumo.append(t_cores)
+                        story.append(KeepTogether(bloco_resumo))
+
                     doc.build(story)
                     pdf_out.seek(0)
                     return pdf_out.getvalue()
@@ -357,7 +498,7 @@ if uploaded_files:
                 with col_d1:
                     st.download_button(
                         label="📥 Baixar Relatório Consolidado em Excel (.xlsx)",
-                        data=gerar_excel(lotes_orfas),
+                        data=gerar_excel(lotes_orfas, df_resumo_cores),
                         file_name="Relatorio_Consolidado_ORFAS.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
@@ -365,7 +506,7 @@ if uploaded_files:
                 with col_d2:
                     st.download_button(
                         label="📥 Baixar Relatório Consolidado em PDF (.pdf)",
-                        data=gerar_pdf(lotes_orfas),
+                        data=gerar_pdf(lotes_orfas, df_resumo_cores),
                         file_name="Relatorio_Consolidado_ORFAS.pdf",
                         mime="application/pdf",
                         use_container_width=True,
