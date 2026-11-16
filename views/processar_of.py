@@ -26,7 +26,7 @@ st.markdown(
     """
     <div style="margin-bottom: 25px;">
         <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-            🚪 RELATORIO, GERENCIAL OF
+            🚪 RELATORIO GERENCIAL OFs PLANEJADAS
         </h2>
         <p style="margin: 6px 0 0 0; color: #94A3B8; font-size: 14px;">
             Painel de Engenharia & PCP — Relatório Gerencial Executivo
@@ -38,25 +38,34 @@ st.markdown(
 
 st.write("")
 
-# --- FUNÇÃO AUXILIAR PARA IDENTIFICAR FAMÍLIA DO EXPOSITOR ---
-def identificar_familia(modelo: str) -> str:
+# --- FUNÇÃO AUXILIAR PARA IDENTIFICAR FAMÍLIA E DIMENSÃO DO EXPOSITOR ---
+def extrair_familia_e_dimensao(modelo: str):
     m = modelo.strip().upper()
-    # Ordenado dos prefixos mais específicos para os mais genéricos
-    if m.startswith("VRA"):
-        return "VRA"
+    
+    # Extrai números do modelo para identificar a dimensão/comprimento (ex: 2500, 3000, 1875)
+    nums = re.findall(r"\d{3,5}", m)
+    dimensao = nums[0] if nums else "GERAL"
+
+    # Isolando VAP (Congelados) de VA (Vertical Alto) e demais linhas
+    if m.startswith("VAP"):
+        familia = "VAP (CONGELADOS)"
+    elif m.startswith("VRA"):
+        familia = "VRA"
     elif m.startswith("VCA"):
-        return "VCA"
+        familia = "VCA"
     elif m.startswith("VIL"):
-        return "VIL"
+        familia = "VIL"
     elif m.startswith("VA"):
-        return "VA"
+        familia = "VA (RESFRIADOS)"
     elif m.startswith("VR"):
-        return "VR"
+        familia = "VR"
     elif m.startswith("IR"):
-        return "IR"
+        familia = "IR"
     else:
         match = re.match(r"^([A-Z]+)", m)
-        return match.group(1) if match else "OUTROS"
+        familia = match.group(1) if match else "OUTROS"
+
+    return familia, dimensao
 
 # --- ÁREA DE UPLOAD ---
 uploaded_files = st.file_uploader(
@@ -142,7 +151,6 @@ if uploaded_files:
 
                     itens_orfa = []
                     
-                    # Coleta todas as temperaturas de iluminação encontradas em todo o texto do PDF
                     todas_iluminacoes = re.findall(r"(3000K|4000K)", texto_completo, re.IGNORECASE)
                     ilum_idx = 0
 
@@ -184,7 +192,6 @@ if uploaded_files:
                                 acol_ext = re.search(r"Acb\.\s*Externo:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 gas = re.search(r"Fluido/Gás:\s*([^\n|]+)", bloco, re.IGNORECASE)
                                 
-                                # Atribui a iluminação sequencialmente se houver ocorrências disponíveis
                                 val_ilu = "-"
                                 if ilum_idx < len(todas_iluminacoes):
                                     val_ilu = todas_iluminacoes[ilum_idx].upper()
@@ -224,7 +231,7 @@ if uploaded_files:
             if lotes_orfas:
                 st.success(f"🎉 Processamento concluído! Total de ORFAs no lote: {len(lotes_orfas)}")
 
-                # --- CÁLCULO DO RESUMO GERAL DE CORES POR FAMÍLIA ---
+                # --- CÁLCULO DO RESUMO DETALHADO POR FAMÍLIA, DIMENSÃO E ACABAMENTOS ---
                 registros_cores = []
                 for lote in lotes_orfas:
                     for item in lote['itens']:
@@ -233,27 +240,30 @@ if uploaded_files:
                         except ValueError:
                             qtd_num = 1
                         
-                        familia = identificar_familia(item["modelo"])
-                        # Prioriza ACB. EXTERNO; caso esteja vazio ("-"), usa CAREN. FRONTAL
-                        cor = item["acb_ext"].strip().upper()
-                        if not cor or cor == "-":
-                            cor = item["carenagem"].strip().upper() if item["carenagem"].strip() != "-" else "NÃO INFORMADA"
+                        familia, dimensao = extrair_familia_e_dimensao(item["modelo"])
+                        
+                        acb_tt = item["acb_tt_pnl"].strip().upper() if item["acb_tt_pnl"].strip() != "-" else "N/A"
+                        caren_frontal = item["carenagem"].strip().upper() if item["carenagem"].strip() != "-" else "N/A"
+                        acb_externo = item["acb_ext"].strip().upper() if item["acb_ext"].strip() != "-" else "N/A"
 
                         registros_cores.append({
                             "Família": familia,
-                            "Cor / Acabamento": cor,
+                            "Dimensão": dimensao,
+                            "ACB. TT/PNL": acb_tt,
+                            "CAREN. FRONTAL": caren_frontal,
+                            "ACB. EXTERNO": acb_externo,
                             "Quantidade": qtd_num
                         })
 
                 if registros_cores:
                     df_resumo_cores = (
                         pd.DataFrame(registros_cores)
-                        .groupby(["Família", "Cor / Acabamento"], as_index=False)["Quantidade"]
+                        .groupby(["Família", "Dimensão", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO"], as_index=False)["Quantidade"]
                         .sum()
-                        .sort_values(by=["Família", "Quantidade"], ascending=[True, False])
+                        .sort_values(by=["Família", "Dimensão", "Quantidade"], ascending=[True, True, False])
                     )
                 else:
-                    df_resumo_cores = pd.DataFrame(columns=["Família", "Cor / Acabamento", "Quantidade"])
+                    df_resumo_cores = pd.DataFrame(columns=["Família", "Dimensão", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "Quantidade"])
 
                 st.markdown("---")
                 for lote in lotes_orfas:
@@ -268,12 +278,12 @@ if uploaded_files:
                     st.dataframe(df_exib, use_container_width=True, hide_index=True)
                     st.markdown("---")
 
-                # --- EXIBIÇÃO DO RESUMO GERAL DE CORES NA TELA ---
-                st.markdown("### 🎨 Resumo Geral de Cores por Família")
+                # --- EXIBIÇÃO DO RESUMO DETALHADO NA TELA ---
+                st.markdown("### 🎨 Resumo Geral Detalhado por Família, Dimensão e Acabamentos")
                 if not df_resumo_cores.empty:
                     st.dataframe(df_resumo_cores, use_container_width=True, hide_index=True)
                 else:
-                    st.info("Nenhum dado de cor encontrado para resumir.")
+                    st.info("Nenhum dado encontrado para o resumo.")
                 st.markdown("---")
 
                 # --- GERAÇÃO DO EXCEL ---
@@ -335,51 +345,34 @@ if uploaded_files:
                             curr_row += 1
                         curr_row += 1
 
-                    # --- BLOCO FINAL NO EXCEL: RESUMO GERAL DE CORES POR FAMÍLIA ---
+                    # --- BLOCO FINAL NO EXCEL: RESUMO DETALHADO POR COLUNAS ---
                     if not df_cores.empty:
                         curr_row += 1
-                        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=4)
-                        c_res_title = ws.cell(row=curr_row, column=1, value="RESUMO GERAL DE CORES POR FAMÍLIA DE EXPOSITORES")
+                        ws.merge_cells(start_row=curr_row, start_column=1, end_row=curr_row, end_column=6)
+                        c_res_title = ws.cell(row=curr_row, column=1, value="RESUMO GERAL DETALHADO POR FAMÍLIA, DIMENSÃO E ACABAMENTOS")
                         c_res_title.font = f_title; c_res_title.fill = fill_title; c_res_title.alignment = Alignment(horizontal="center", vertical="center")
                         ws.row_dimensions[curr_row].height = 22
                         curr_row += 1
 
-                        ws.cell(row=curr_row, column=1, value="Família").font = f_head
-                        ws.cell(row=curr_row, column=1).fill = fill_head
-                        ws.cell(row=curr_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
-                        ws.cell(row=curr_row, column=1).border = border
-
-                        ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=3)
-                        for col_i in [2, 3]:
-                            cell_h = ws.cell(row=curr_row, column=col_i)
-                            if col_i == 2:
-                                cell_h.value = "Cor / Acabamento"
-                            cell_h.font = f_head; cell_h.fill = fill_head; cell_h.alignment = Alignment(horizontal="center", vertical="center"); cell_h.border = border
-
-                        ws.cell(row=curr_row, column=4, value="Qtd Expositores").font = f_head
-                        ws.cell(row=curr_row, column=4).fill = fill_head
-                        ws.cell(row=curr_row, column=4).alignment = Alignment(horizontal="center", vertical="center")
-                        ws.cell(row=curr_row, column=4).border = border
+                        res_headers = ["Família", "Dimensão", "ACB. TT/PNL", "CAREN. FRONTAL", "ACB. EXTERNO", "Qtd Expositores"]
+                        for c_idx, h in enumerate(res_headers, 1):
+                            c = ws.cell(row=curr_row, column=c_idx, value=h)
+                            c.font = f_head; c.fill = fill_head; c.alignment = Alignment(horizontal="center", vertical="center"); c.border = border
                         ws.row_dimensions[curr_row].height = 18
                         curr_row += 1
 
                         for idx_c, row_c in df_cores.iterrows():
-                            c1 = ws.cell(row=curr_row, column=1, value=row_c["Família"])
-                            c1.font = f_bold_body; c1.alignment = Alignment(horizontal="center", vertical="center"); c1.border = border
-
-                            ws.merge_cells(start_row=curr_row, start_column=2, end_row=curr_row, end_column=3)
-                            c2 = ws.cell(row=curr_row, column=2, value=row_c["Cor / Acabamento"])
-                            c2.font = f_body; c2.alignment = Alignment(horizontal="left", vertical="center"); c2.border = border
-                            ws.cell(row=curr_row, column=3).border = border
-
-                            c4 = ws.cell(row=curr_row, column=4, value=int(row_c["Quantidade"]))
-                            c4.font = f_bold_body; c4.alignment = Alignment(horizontal="center", vertical="center"); c4.border = border
-
-                            if idx_c % 2 == 1:
-                                c1.fill = fill_zebra; c2.fill = fill_zebra; ws.cell(row=curr_row, column=3).fill = fill_zebra; c4.fill = fill_zebra
+                            vals_c = [row_c["Família"], row_c["Dimensão"], row_c["ACB. TT/PNL"], row_c["CAREN. FRONTAL"], row_c["ACB. EXTERNO"], int(row_c["Quantidade"])]
+                            for c_idx, val in enumerate(vals_c, 1):
+                                c = ws.cell(row=curr_row, column=c_idx, value=val)
+                                c.font = f_bold_body if c_idx in [1, 2, 6] else f_body
+                                c.border = border
+                                c.alignment = Alignment(horizontal="center" if c_idx in [1, 2, 6] else "left", vertical="center")
+                                if idx_c % 2 == 1:
+                                    c.fill = fill_zebra
                             curr_row += 1
 
-                    for col_letter, width in {'A': 12, 'B': 25, 'C': 15, 'D': 20, 'E': 20, 'F': 20, 'G': 12, 'H': 10}.items():
+                    for col_letter, width in {'A': 18, 'B': 14, 'C': 22, 'D': 22, 'E': 22, 'F': 15}.items():
                         ws.column_dimensions[col_letter].width = width
 
                     wb.save(out)
@@ -454,11 +447,11 @@ if uploaded_files:
 
                         story.append(KeepTogether(bloqueio))
 
-                    # --- BLOCO FINAL NO PDF: RESUMO GERAL DE CORES POR FAMÍLIA ---
+                    # --- BLOCO FINAL NO PDF: RESUMO DETALHADO POR COLUNAS ---
                     if not df_cores.empty:
                         story.append(Spacer(1, 8))
                         bloco_resumo = []
-                        t_res_banner = Table([[Paragraph("RESUMO GERAL DE CORES POR FAMÍLIA DE EXPOSITORES", style_sub)]], colWidths=[15.0*cm])
+                        t_res_banner = Table([[Paragraph("RESUMO GERAL DETALHADO POR FAMÍLIA, DIMENSÃO E ACABAMENTOS", style_sub)]], colWidths=[27.7*cm])
                         t_res_banner.setStyle(TableStyle([
                             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#E2E8F0")),
                             ('TOPPADDING', (0,0), (-1,-1), 5),
@@ -468,18 +461,24 @@ if uploaded_files:
 
                         rows_cores = [[
                             Paragraph("Família", style_h),
-                            Paragraph("Cor / Acabamento", style_h),
+                            Paragraph("Dimensão", style_h),
+                            Paragraph("ACB. TT/PNL", style_h),
+                            Paragraph("CAREN. FRONTAL", style_h),
+                            Paragraph("ACB. EXTERNO", style_h),
                             Paragraph("Qtd Expositores", style_h)
                         ]]
 
                         for _, r_cor in df_cores.iterrows():
                             rows_cores.append([
                                 Paragraph(str(r_cor["Família"]), style_ccb),
-                                Paragraph(str(r_cor["Cor / Acabamento"]), style_c),
+                                Paragraph(str(r_cor["Dimensão"]), style_cc),
+                                Paragraph(str(r_cor["ACB. TT/PNL"]), style_c),
+                                Paragraph(str(r_cor["CAREN. FRONTAL"]), style_c),
+                                Paragraph(str(r_cor["ACB. EXTERNO"]), style_c),
                                 Paragraph(str(int(r_cor["Quantidade"])), style_ccb),
                             ])
 
-                        t_cores = Table(rows_cores, colWidths=[3.5*cm, 8.0*cm, 3.5*cm])
+                        t_cores = Table(rows_cores, colWidths=[4.5*cm, 2.5*cm, 6.0*cm, 6.0*cm, 6.0*cm, 2.7*cm])
                         t_cores.setStyle(TableStyle([
                             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#2C5282")),
                             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
