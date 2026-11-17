@@ -12,7 +12,7 @@ st.markdown(
     """
     <div style="margin-bottom: 25px;">
         <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px;">
-            🚪 CÁLCULO DE PORTAS, FRAMES & EXPOSITORES ABERTOS
+            📦 CÁLCULO DE BANDEJAS ABS & PEAD"
         </h2>
         <p style="margin: 6px 0 0 0; color: #94A3B8; font-size: 14px;">
             Painel de Engenharia & PCP — Relatório Gerencial Executivo
