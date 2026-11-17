@@ -29,7 +29,7 @@ with st.sidebar:
 
 is_dark = tema_selecionado == "Escuro (Dark)"
 
-# --- PALETA DE CORES DINÂMICA (PADRÃO MERCADO ERP) ---
+# --- PALETA DE CORES INSTITUCIONAL (IDENTIDADE NSF) ---
 if is_dark:
     BG_APP = "#0B0F19"
     BG_SIDEBAR = "#05070D"
@@ -37,9 +37,8 @@ if is_dark:
     TEXT_MUTED = "#94A3B8"
     BORDER_COLOR = "#1E293B"
     HOVER_COLOR = "#172033"
-    UPLOADER_BG = "#131927"
     LOGO_TEXT = "#FFFFFF"
-    SLOGAN_TEXT = "#64748B"
+    SLOGAN_TEXT = "#94A3B8"
     CARD_BG = "#111827"
     KPI_BG = "#131B2E"
 else:
@@ -49,7 +48,6 @@ else:
     TEXT_MUTED = "#475569"
     BORDER_COLOR = "#E2E8F0"
     HOVER_COLOR = "#F1F5F9"
-    UPLOADER_BG = "#F1F5F9"
     LOGO_TEXT = "#1E3A8A"
     SLOGAN_TEXT = "#64748B"
     CARD_BG = "#FFFFFF"
@@ -76,7 +74,6 @@ st.markdown(
             color: {TEXT_MUTED} !important;
         }}
 
-        /* Título dos Grupos na Sidebar */
         [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] p strong,
         [data-testid="stSidebar"] span[data-testid="stHeader"] {{
             color: {TEXT_MUTED} !important;
@@ -99,7 +96,6 @@ st.markdown(
             background-color: {HOVER_COLOR} !important;
         }}
 
-        /* Item Selecionado na Sidebar */
         [data-testid="stSidebarNav"] li a[aria-current="page"],
         [data-testid="stSidebar"] div[role="radiogroup"] > label[aria-checked="true"] {{
             background-color: {HOVER_COLOR} !important;
@@ -121,7 +117,7 @@ st.markdown(
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }}
 
-        /* Estilização Perfeita, Uniforme e Alinhada dos Botões de Acesso Rápido */
+        /* Botões de Acesso Rápido */
         .stButton button {{
             background-color: {CARD_BG} !important;
             color: {TEXT_MAIN} !important;
@@ -143,7 +139,6 @@ st.markdown(
             transform: translateY(-2px);
         }}
 
-        /* Ocultar elementos padrão desnecessários do Streamlit */
         #MainMenu {{visibility: hidden;}}
         footer {{visibility: hidden;}}
         .stHeader, header[data-testid="stHeader"] {{
@@ -154,28 +149,30 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- SIDEBAR COM O LOGOTIPO OFICIAL NSF ---
+# --- SIDEBAR COM O LOGOTIPO OFICIAL NSF RECENTEMENTE ATUALIZADO ---
 with st.sidebar:
     st.markdown(
         f"""
         <div style="text-align: center; padding: 15px 5px 10px 5px;">
-            <svg width="210" height="65" viewBox="0 0 320 95" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- Asa Superior Azul -->
-                <path d="M 15 28 C 35 10, 75 12, 102 42 C 78 38, 45 35, 15 28 Z" fill="#2563EB"/>
-                <!-- Cabeça e Bico Verde -->
-                <path d="M 102 42 C 112 22, 116 15, 122 10 C 112 58, 70 72, 46 66 C 70 60, 88 50, 102 42 Z" fill="#22C55E"/>
-                <!-- Base Laranja / Amarela (Cauda) -->
-                <path d="M 10 56 C 32 76, 65 72, 102 44 C 68 52, 36 54, 10 56 Z" fill="#F97316"/>
-                <path d="M 10 56 C 22 66, 45 68, 68 60 C 42 58, 26 56, 10 56 Z" fill="#EAB308"/>
-                <!-- Tipografia NSF -->
-                <text x="135" y="62" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="56" fill="{LOGO_TEXT}" letter-spacing="2">NSF</text>
+            <svg width="210" height="75" viewBox="0 0 340 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Símbolo: O Pássaro Renovado (Formas Arredondadas e Modernas)[cite: 28] -->
+                <!-- Asa Superior Azul (Tecnologia e Solidez) -->
+                <path d="M 18 26 C 40 8, 82 10, 112 42 C 86 38, 50 34, 18 26 Z" fill="#2563EB"/>
+                <!-- Cabeça e Bico Verde (Natureza e Valores) -->
+                <path d="M 112 42 C 122 20, 126 13, 132 8 C 122 58, 76 74, 50 68 C 76 60, 96 50, 112 42 Z" fill="#22C55E"/>
+                <!-- Cauda Laranja e Amarela (Família, Acolhimento e o Ciclo de Transformação) -->
+                <path d="M 12 56 C 36 78, 72 74, 112 44 C 74 52, 40 54, 12 56 Z" fill="#F97316"/>
+                <path d="M 12 56 C 25 68, 50 70, 75 60 C 46 58, 28 56, 12 56 Z" fill="#EAB308"/>
+                
+                <!-- Tipografia NSF Oficial de Maior Peso e Presença[cite: 28] -->
+                <text x="145" y="65" font-family="'Segoe UI', Roboto, Helvetica, sans-serif" font-weight="900" font-size="58" fill="{LOGO_TEXT}" letter-spacing="2.5">NSF</text>
             </svg>
-            <div style="margin-top: 4px; padding: 0 5px;">
+            <div style="margin-top: 2px; padding: 0 5px;">
                 <p style="color: {LOGO_TEXT} !important; font-size: 9.5px; font-weight: 800; margin: 0; letter-spacing: 0.9px; text-transform: uppercase; line-height: 1.3;">
                     TECNOLOGIA EM INSTALAÇÕES COMERCIAIS
                 </p>
-                <p style="color: {SLOGAN_TEXT} !important; font-size: 9px; font-weight: 500; margin: 3px 0 0 0; line-height: 1.2;">
-                    Desenvolvendo o varejo, transformando vidas.
+                <p style="color: {SLOGAN_TEXT} !important; font-size: 9px; font-weight: 500; margin: 4px 0 0 0; line-height: 1.2; font-style: italic;">
+                    "Desenvolvendo o varejo, transformando vidas."[cite: 28]
                 </p>
             </div>
         </div>
@@ -183,60 +180,21 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 10px 0;'>", unsafe_allow_html=True)
+    st.markdown(f"<hr style='border-color: {BORDER_COLOR}; margin: 12px 0;'>", unsafe_allow_html=True)
     st.markdown(
         f"<p style='color: {SLOGAN_TEXT} !important; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;'>Navegação do Sistema</p>",
         unsafe_allow_html=True,
     )
 
 # --- DEFINIÇÃO DOS MÓDULOS E PÁGINAS DO SISTEMA ---
-bandejas_page = st.Page(
-    "views/bandejas_pead.py",
-    title="Bandejas ABS & PEAD",
-    icon=":material/layers:",
-)
-
-tubos_page = st.Page(
-    "views/calculo_tubos.py",
-    title="Cálculo de Tubos (Chassis)",
-    icon=":material/grid_on:",
-)
-
-portas_page = st.Page(
-    "views/calculo_portas.py",
-    title="Portas & Frames (VA & VAP)",
-    icon=":material/door_front:",
-)
-
-chapas_page = st.Page(
-    "views/calculo_chapas.py",
-    title="Chapas Cristal VA (Bojo/Costas/Teto)",
-    icon=":material/description:",
-)
-
-inox_page = st.Page(
-    "views/calculo_inox.py",
-    title="Chapas de Aço Inox (Expositores VA)",
-    icon=":material/shield:",
-)
-
-gerencial_page = st.Page(
-    "views/processar_of.py",
-    title="Relatórios Gerenciais (ORFAs)",
-    icon=":material/analytics:",
-)
-
-materiais_page = st.Page(
-    "views/materiais_padrao.py",
-    title="Materiais Padrão (Refrigeração)",
-    icon=":material/inventory_2:",
-)
-
-injecao_page = st.Page(
-    "views/op_injeção.py",
-    title="OP de Injeção de PU",
-    icon=":material/science:",
-)
+bandejas_page = st.Page("views/bandejas_pead.py", title="Bandejas ABS & PEAD", icon=":material/layers:")
+tubos_page = st.Page("views/calculo_tubos.py", title="Cálculo de Tubos (Chassis)", icon=":material/grid_on:")
+portas_page = st.Page("views/calculo_portas.py", title="Portas & Frames (VA & VAP)", icon=":material/door_front:")
+chapas_page = st.Page("views/calculo_chapas.py", title="Chapas Cristal VA (Bojo/Costas/Teto)", icon=":material/description:")
+inox_page = st.Page("views/calculo_inox.py", title="Chapas de Aço Inox (Expositores VA)", icon=":material/shield:")
+gerencial_page = st.Page("views/processar_of.py", title="Relatórios Gerenciais (ORFAs)", icon=":material/analytics:")
+materiais_page = st.Page("views/materiais_padrao.py", title="Materiais Padrão (Refrigeração)", icon=":material/inventory_2:")
+injecao_page = st.Page("views/op_injeção.py", title="OP de Injeção de PU", icon=":material/science:")
 
 # --- TELA INICIAL (DASHBOARD ERP PROFISSIONAL) ---
 def render_home():
@@ -254,7 +212,6 @@ def render_home():
         unsafe_allow_html=True,
     )
 
-    # Cards de Indicadores Estilo ERP
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     with kpi1:
         st.markdown(
@@ -311,7 +268,6 @@ def render_home():
         unsafe_allow_html=True,
     )
 
-    # Grid de Acesso Rápido com 3 Colunas perfeitamente equilibradas (3 na col1, 3 na col2, 2 na col3)
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -341,12 +297,7 @@ def render_home():
         if st.button("📊 Relatórios Gerenciais (ORFAs)", key="btn_gerencial"):
             st.switch_page(gerencial_page)
 
-home_page = st.Page(
-    render_home,
-    title="Início (Portal ERP)",
-    icon=":material/dashboard:",
-    default=True,
-)
+home_page = st.Page(render_home, title="Início (Portal ERP)", icon=":material/dashboard:", default=True)
 
 # --- NAVEGAÇÃO CORPORATIVA DA PLATAFORMA ---
 pg = st.navigation(
